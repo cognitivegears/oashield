@@ -1,0 +1,26 @@
+{{#operations}}
+{{#operation}}
+
+# {{operationId}}: {{httpMethod}} {{path}}
+SecRule REQUEST_URI "!@restmethod {{path}}" "id:1{{-index}},phase:2, skipAfter:END_{{operationId}}"
+SecRule REQUEST_METHOD "!@within {{httpMethod}}" "id:2{{-index}},phase:2, skipAfter:END_{{operationId}}"
+
+{{#allParams}}
+{{#isPathParam}}
+SecRule REQUEST_URI "@restmethod {{path}}" "id:3{{-index}},phase:2,chain,deny,status:403,msg:'Forbidden parameter value detected',skipAfter:FAILED_API_CHECKS"
+  SecRule ARGS_PATH:{{paramName}} #FIXME
+{{/isPathParam}}
+{{/allParams}}
+
+## The request passed all checks
+SecAction "phase:2,pass,skipAfter:PASSED_API_CHECKS
+SecMarker END_{{operationId}}
+{{/operation}}
+{{/operations}}
+
+# For anything else, deny by default
+SecMarker FAILED_API_CHECKS
+SecRule REQUEST_URI "!@unconditionalMatch" "id:999999,deny,status:403"
+
+# If we reach this point, the request is allowed
+SecMarker PASSED_API_CHECKS
