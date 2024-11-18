@@ -1,0 +1,55 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build OpenAPI Generator",
+      "type": "shell",
+      "command": "mvn",
+      "args": ["package"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Build CLI Runner",
+      "type": "shell",
+      "command": "mvn",
+      "args": ["package", "-P", "build-cli-jar"],
+      "group": {
+        "kind": "build",
+      }
+    },
+    {
+      "label": "Generate ModSecurity Rules",
+      "type": "shell",
+      "command": "java",
+      "args": [
+        "-cp",
+        "target/modsecurity3-openapi-generator-0.0.1.jar:target/modsecurity3-cli.jar",
+        "org.openapitools.codegen.OpenAPIGenerator",
+        "generate",
+        "-g",
+        "modsecurity3",
+        "-i",
+        "${input:openapiFile}",
+        "-o",
+        "./target/output"
+      ],
+      "dependsOn": "Build CLI Runner",
+      "group": {
+        "kind": "none",
+        "isDefault": false
+      },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "openapiFile",
+      "type": "promptString",
+      "description": "Enter the path to the OpenAPI file",
+      "default": "samples/petstore.yaml"
+    }
+  ]
+}

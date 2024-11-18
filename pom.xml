@@ -1,5 +1,6 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.openapitools</groupId>
     <artifactId>modsecurity3-openapi-generator</artifactId>
@@ -75,7 +76,7 @@
                         <configuration>
                             <sources>
                                 <source>
-                                src/main/java</source>
+                                    src/main/java</source>
                             </sources>
                         </configuration>
                     </execution>
@@ -88,7 +89,7 @@
                         <configuration>
                             <sources>
                                 <source>
-                                src/test/java</source>
+                                    src/test/java</source>
                             </sources>
                         </configuration>
                     </execution>
@@ -125,4 +126,63 @@
         <maven-plugin-version>1.0.0</maven-plugin-version>
         <junit-version>5.10.2</junit-version>
     </properties>
+    <profiles>
+        <profile>
+            <id>build-cli-jar</id>
+            <dependencies>
+                <dependency>
+                    <groupId>org.openapitools</groupId>
+                    <artifactId>openapi-generator-cli</artifactId>
+                    <version>7.9.0</version>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <version>3.7.1</version>
+                        <configuration>
+                            <descriptorRefs>
+                                <descriptorRef>jar-with-dependencies</descriptorRef>
+                            </descriptorRefs>
+                            <archive>
+                                <manifest>
+                                    <mainClass>org.openapitools.codegen.OpenAPIGenerator</mainClass>
+                                </manifest>
+                            </archive>
+                            <finalName>modsecurity3-cli</finalName>
+                            <appendAssemblyId>false</appendAssemblyId>
+                              <fileSets>
+                                <fileSet>
+                                  <directory>${project.build.outputDirectory}</directory>
+                                  <outputDirectory>/</outputDirectory>
+                                  <includes>
+                                    <include>**/*</include>
+                                  </includes>
+                                </fileSet>
+                              </fileSets>
+                            <dependencySets>
+                                <dependencySet>
+                                  <outputDirectory>/</outputDirectory>
+                                  <useProjectArtifact>true</useProjectArtifact>
+                                  <unpack>true</unpack>
+                                  <scope>runtime</scope>
+                                </dependencySet>
+                              </dependencySets>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>make-assembly</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

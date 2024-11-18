@@ -30,9 +30,6 @@ dist/
 nbdist/
 .nb-gradle/
 
-# VS Code specific
-.vscode/
-
 # OS specific
 .DS_Store
 Thumbs.db
