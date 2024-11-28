@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run OpenAPI Generator",
+            "preLaunchTask": "Build CLI Runner",
+            "request": "launch",
+            "mainClass": "org.openapitools.codegen.OpenAPIGenerator",
+            "projectName": "modsecurity3-openapi-generator",
+            "classPaths": [
+                "${workspaceFolder}/target/modsecurity3-openapi-generator-0.0.1.jar","${workspaceFolder}/target/modsecurity3-cli.jar"
+            ],
+            // Add program arguments
+            "args": [
+                "generate",
+                "-g",
+                "modsecurity3",
+                "-i",
+                "${input:openapiFile}",
+                "-o",
+                "/tmp/pet"
+            ]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "openapiFile",
+            "type": "promptString",
+            "description": "Enter the path to the OpenAPI file",
+            "default": "samples/petstore.yaml"
+        }
+    ]
+},
+"inputs": [
+        {
+            "id": "openapiFile",
+            "type": "promptString",
+            "description": "Enter the path to the OpenAPI file",
+            "default": "samples/petstore.yaml"
+        }
+    ]

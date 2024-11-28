@@ -8,7 +8,15 @@ SecRule REQUEST_METHOD "!@within {{httpMethod}}" "id:2{{-index}},phase:2, skipAf
 {{#allParams}}
 {{#isPathParam}}
 SecRule REQUEST_URI "@restmethod {{path}}" "id:3{{-index}},phase:2,chain,deny,status:403,msg:'Forbidden parameter value detected',skipAfter:FAILED_API_CHECKS"
-  SecRule ARGS_PATH:{{paramName}} #FIXME
+  SecRule REQUEST_METHOD "@within {{httpMethod}}" "chain"
+  {{#isLong}}SecRule ARGS_PATH:{{paramName}} "!@rx ^\d+$" "t:none"{{/isLong}}
+  {{#isInteger}}SecRule ARGS_PATH:{{paramName}} "!@rx ^\d+$" "t:none"{{/isInteger}}
+  {{#isFloat}}SecRule ARGS_PATH:{{paramName}} "!@rx ^\d+\.\d+$" "t:none"{{/isFloat}}
+  {{#isDouble}}SecRule ARGS_PATH:{{paramName}} "!@rx ^\d+\.\d+$" "t:none"{{/isDouble}}
+  {{#isBoolean}}SecRule ARGS_PATH:{{paramName}} "!@rx ^true|false$" "t:none"{{/isBoolean}}
+  {{#isDate}}SecRule ARGS_PATH:{{paramName}} "!@rx ^\d{4}-\d{2}-\d{2}$" "t:none"{{/isDate}}
+  {{#isDateTime}}SecRule ARGS_PATH:{{paramName}} "!@rx ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$" "t:none"{{/isDateTime}}
+  {{#isString}}SecRule ARGS_PATH:{{paramName}} "!@rx ^[a-zA-Z0-9_\-]+$" "t:none"{{/isString}}
 {{/isPathParam}}
 {{/allParams}}
 

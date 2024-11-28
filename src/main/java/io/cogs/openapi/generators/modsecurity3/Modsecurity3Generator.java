@@ -3,11 +3,15 @@ package io.cogs.openapi.generators.modsecurity3;
 import org.openapitools.codegen.*;
 import org.openapitools.codegen.model.*;
 import io.swagger.models.properties.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.io.File;
 
 public class Modsecurity3Generator extends DefaultCodegen implements CodegenConfig {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(Modsecurity3Generator.class);
 
   // source folder where to write the files
   protected String sourceFolder = "src";
@@ -20,6 +24,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    * @see     org.openapitools.codegen.CodegenType
    */
   public CodegenType getTag() {
+    LOGGER.debug("Getting the generator tag");
     return CodegenType.OTHER;
   }
 
@@ -30,6 +35,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    * @return the friendly name for the generator
    */
   public String getName() {
+    LOGGER.debug("Getting the generator name");
     return "modsecurity3";
   }
 
@@ -38,11 +44,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    */
   @Override
   public OperationsMap postProcessOperationsWithModels(OperationsMap objs, List<ModelMap> allModels) {
-
-    // to try debugging your code generator:
-    // set a break point on the next line.
-    // then debug the JUnit test called LaunchGeneratorInDebugger
-
+    LOGGER.debug("Post-processing operations with models");
     OperationsMap results = super.postProcessOperationsWithModels(objs, allModels);
 
     OperationMap ops = results.getOperations();
@@ -50,8 +52,14 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
 
     // iterate over the operation and perhaps modify something
     for(CodegenOperation co : opList){
+      LOGGER.debug("Processing operation: {}", co.operationId);
       // example:
       // co.httpMethod = co.httpMethod.toLowerCase();
+
+      // Loop through parameters and print information about them
+      for (CodegenParameter param : co.allParams) {
+        LOGGER.debug("Parameter: {}, data type: {}, isString: {}, max length: {}", param.baseName, param.getDataType(), param.isString, param.getMaxLength());
+      }
     }
 
     return results;
@@ -64,11 +72,13 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    * @return A string value for the help message
    */
   public String getHelp() {
+    LOGGER.debug("Getting help message");
     return "Generates a modsecurity3 client library.";
   }
 
   public Modsecurity3Generator() {
     super();
+    LOGGER.debug("Initializing Modsecurity3Generator");
 
     // set the output folder here
     outputFolder = "generated-code/modsecurity3";
@@ -127,6 +137,8 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
         "Type1",      // replace these with your types
         "Type2")
     );
+
+    LOGGER.debug("Modsecurity3Generator initialized with output folder: {}", outputFolder);
   }
 
   /**
@@ -137,6 +149,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    */
   @Override
   public String escapeReservedWord(String name) {
+    LOGGER.debug("Escaping reserved word: {}", name);
     return "_" + name;  // add an underscore to the name
   }
 
@@ -145,7 +158,9 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    * instantiated
    */
   public String modelFileFolder() {
-    return outputFolder + "/" + sourceFolder + "/" + modelPackage().replace('.', File.separatorChar);
+    String folder = outputFolder + "/" + sourceFolder + "/" + modelPackage().replace('.', File.separatorChar);
+    LOGGER.debug("Model file folder: {}", folder);
+    return folder;
   }
 
   /**
@@ -154,7 +169,9 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    */
   @Override
   public String apiFileFolder() {
-    return outputFolder + "/" + sourceFolder + "/" + apiPackage().replace('.', File.separatorChar);
+    String folder = outputFolder + "/" + sourceFolder + "/" + apiPackage().replace('.', File.separatorChar);
+    LOGGER.debug("API file folder: {}", folder);
+    return folder;
   }
 
   /**
@@ -166,6 +183,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    */
   @Override
   public String escapeUnsafeCharacters(String input) {
+    LOGGER.debug("Escaping unsafe characters in input");
     //TODO: check that this logic is safe to escape unsafe characters to avoid code injection
     return input;
   }
@@ -177,6 +195,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    * @return string with quotation mark removed or escaped
    */
   public String escapeQuotationMark(String input) {
+    LOGGER.debug("Escaping quotation marks in input");
     //TODO: check that this logic is safe to escape quotation mark to avoid code injection
     return input.replace("\"", "\\\"");
   }
