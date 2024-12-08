@@ -48,5 +48,7 @@
 
   "mounts": [
     "type=bind,source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,readonly",
+    "type=bind,source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,readonly",
+    "type=bind,source=${localEnv:HOME}/projects/test,target=/home/vscode/test"
 ]
 }

@@ -13,9 +13,15 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
 
   private static final Logger LOGGER = LoggerFactory.getLogger(Modsecurity3Generator.class);
 
+  private static final String MODSECURITY_INDEX_KEY = "x-codegen-globalIndex";
+  private static final String MODSECURITY_PATH_REGEX_KEY = "x-codegen-pathRegex";
+  private static final String VENDOR_EXTENSIONS_KEY = "vendorExtensions";
+
   // source folder where to write the files
   protected String sourceFolder = "src";
   protected String apiVersion = "0.0.1";
+
+  protected Long globalIndex = 4200001L; // Default start
 
   /**
    * Configures the type of generator.
@@ -94,7 +100,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    * or decimals since they have a set pattern).
    */
   private boolean allowMultiple(CodegenParameter param) {
-    return !param.getIsBoolean() && !isDecimal(param);
+    return !(param.getIsBoolean() || isDecimal(param));
   }
 
   /*
@@ -150,6 +156,20 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
 
   private String getNonDecimalPattern(String allowedInputPattern, String minLengthPatternString, String maxLengthPatternString, boolean allowMultiple, boolean isRequired) {
     if (allowMultiple) {
+      if(minLengthPatternString.isEmpty() && maxLengthPatternString.isEmpty()) {
+        if(isRequired) {
+          return allowedInputPattern + "+";
+        }
+        return allowedInputPattern + "*";
+      }
+      else if(minLengthPatternString.equals("1") && maxLengthPatternString.isEmpty()) {
+        // Make it look prettier
+        return allowedInputPattern + "+";
+      }
+      else if(minLengthPatternString.equals(maxLengthPatternString)) {
+        // no comma needed
+        return allowedInputPattern + "{" + minLengthPatternString + "}";
+      }
       return allowedInputPattern + "{" + minLengthPatternString + "," + maxLengthPatternString + "}";
     } else {
       String pattern = allowedInputPattern;
@@ -174,12 +194,17 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
 
     // iterate over the operation and perhaps modify something
     for (CodegenOperation co : opList) {
+      String path = co.path;
+      String matchPath = path.replaceAll("\\{.*?\\}", "[^/]+");
+      co.vendorExtensions.put(MODSECURITY_PATH_REGEX_KEY, matchPath);
+      co.vendorExtensions.put(MODSECURITY_INDEX_KEY, globalIndex++);
       LOGGER.debug("Processing operation: {}", co.operationId);
       // example:
       // co.httpMethod = co.httpMethod.toLowerCase();
 
       // Loop through parameters and print information about them
       for (CodegenParameter param : co.allParams) {
+        param.vendorExtensions.put(MODSECURITY_INDEX_KEY, globalIndex++);
         String patternString = param.pattern;
         if (patternString == null || patternString.isEmpty()) {
           patternString = getParamPattern(param);
@@ -193,6 +218,10 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
             param.isString, param.getMaxLength());
       }
     }
+
+    Map<String, Object> vendorExtensions = new HashMap<String, Object>();
+    vendorExtensions.put(MODSECURITY_INDEX_KEY, globalIndex++);
+    results.put(VENDOR_EXTENSIONS_KEY, vendorExtensions);
 
     return results;
   }

@@ -2,28 +2,32 @@
 {{#operation}}
 
 # {{operationId}}: {{httpMethod}} {{path}}
-SecRule REQUEST_URI "!@restmethod {{path}}" "id:1{{-index}},phase:2, skipAfter:END_{{operationId}}"
-SecRule REQUEST_METHOD "!@within {{httpMethod}}" "id:2{{-index}},phase:2, skipAfter:END_{{operationId}}"
+# Skip this operation if the request does not match the operation
+SecRule REQUEST_URI "!@restpath {{path}}" "id:{{vendorExtensions.x-codegen-globalIndex}}1,phase:2,pass,nolog,skipAfter:END_{{operationId}}"
+# Also skip this operation if the request does not *fully* match (if it contains extra path segments)
+SecRule REQUEST_URI "!@rx ^{{vendorExtensions.x-codegen-pathRegex}}(\?.*)?$" "id:{{vendorExtensions.x-codegen-globalIndex}}3,phase:2,pass,nolog,skipAfter:END_{{operationId}}"
+# Skip this operation if the request method does not match the operation
+SecRule REQUEST_METHOD "!@within {{httpMethod}}" "id:{{vendorExtensions.x-codegen-globalIndex}}2,phase:2,pass,nolog,skipAfter:END_{{operationId}}"
 
 {{#allParams}}
-{{#isPathParam}}
 {{#pattern}}
-SecRule REQUEST_URI "@restmethod {{path}}" "id:3{{-index}},phase:2,chain,deny,status:403,msg:'Forbidden parameter value detected',skipAfter:FAILED_API_CHECKS"
-  SecRule REQUEST_METHOD "@within {{httpMethod}}" "chain"
-  SecRule ARGS_PATH:{{paramName}} "!@rx {{pattern}}" "t:none"
+SecRule REQUEST_URI "@restpath {{path}}" "id:{{vendorExtensions.x-codegen-globalIndex}}1,phase:2,chain,deny,status:403,msg:'Forbidden parameter value detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
+  SecRule ARGS:{{paramName}} "!@rx {{pattern}}" "t:none"
 {{/pattern}}
-{{/isPathParam}}
 {{/allParams}}
 
+# Check for unknown parameters
+SecRule REQUEST_URI "@restpath {{path}}" "id:{{vendorExtensions.x-codegen-globalIndex}}4,phase:2,chain,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
+  SecRule ARGS_NAMES "!@rx ^({{#allParams}}{{paramName}}{{^-last}}|{{/-last}}{{/allParams}})$" "t:none"
+
 ## The request passed all checks
-SecAction "phase:2,pass,skipAfter:PASSED_API_CHECKS
+SecAction "phase:2,allow:request,id:{{vendorExtensions.x-codegen-globalIndex}}5"
+
+## End of checks for this operation
 SecMarker END_{{operationId}}
 {{/operation}}
 {{/operations}}
 
 # For anything else, deny by default
 SecMarker FAILED_API_CHECKS
-SecRule REQUEST_URI "!@unconditionalMatch" "id:999999,deny,status:403"
-
-# If we reach this point, the request is allowed
-SecMarker PASSED_API_CHECKS
+SecAction "id:{{vendorExtensions.x-codegen-globalIndex}}1,log,auditlog,block,phase:2,msg:'Unknown API endpoint'"

@@ -22,7 +22,7 @@
                 "-i",
                 "${input:openapiFile}",
                 "-o",
-                "/tmp/pet"
+                "/home/vscode/test"
             ]
         }
     ],
