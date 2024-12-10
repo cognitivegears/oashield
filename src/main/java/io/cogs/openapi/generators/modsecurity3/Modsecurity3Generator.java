@@ -14,14 +14,19 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
   private static final Logger LOGGER = LoggerFactory.getLogger(Modsecurity3Generator.class);
 
   private static final String MODSECURITY_INDEX_KEY = "x-codegen-globalIndex";
+  private static final int MODSECURITY_INDEX_MAX = 20;
   private static final String MODSECURITY_PATH_REGEX_KEY = "x-codegen-pathRegex";
   private static final String VENDOR_EXTENSIONS_KEY = "vendorExtensions";
+  private static final String MODSECURITY_HAS_ARRAY_MIN = "x-codegen-hasArrayMin";
+  private static final String MODSECURITY_HAS_ARRAY_MAX = "x-codegen-hasArrayMax";
+
 
   // source folder where to write the files
   protected String sourceFolder = "src";
   protected String apiVersion = "0.0.1";
 
   protected Long globalIndex = 4200001L; // Default start
+  protected Long globalParamIndex = 4210001L; // Default start
 
   /**
    * Configures the type of generator.
@@ -80,8 +85,25 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       return "(true|false)";
     } else if (param.isUuid) {
       return "[0-9a-fA-F]";
-    } else if (param.isByteArray || param.isDate || param.isDateTime || param.isEmail) {
-      return ".";
+    } else if (param.isDate) {
+      return "(\\d{4}-((01|03|05|07|08|10|12)-(0[1-9]|1\\d|2\\d|3[0-1])|(04|06|09|11)-(0[1-9]|1\\d|2\\d|30)|02-(0[1-9]|1\\d|2\\d)))$";
+    } else if (param.isDateTime) {
+      return "^(\\d{4}-((01|03|05|07|08|10|12)-(0[1-9]|1\\d|2\\d|3[0-1])|(04|06|09|11)-(0[1-9]|1\\d|2\\d|30)|02-(0[1-9]|1\\d|2\\d))T([01]\\d|2[0-3]):([0-5]\\d):([0-5]\\d)(\\.\\d+)?([Zz]|[+\\-](0\\d|1[0-4])(:[0-5]\\d)?)?$";
+    } else if (param.isEmail) {
+      return "^[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}$";
+    } else if (param.isEnum) {
+      List<String> enumValues = null;
+      try {
+        enumValues = (List<String>)param.allowableValues.get("values");
+      }
+      catch (ClassCastException e) {
+        LOGGER.warn("Could not cast allowable values to list of strings for parameter: {}", param.baseName);
+      }
+      if (enumValues == null || enumValues.isEmpty()) {
+        LOGGER.warn("No enum values found for parameter: {}", param.baseName);
+        return ".";
+      }
+      return "(" + String.join("|", enumValues) + ")";
     } else {
       return ".";
     }
@@ -100,7 +122,12 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    * or decimals since they have a set pattern).
    */
   private boolean allowMultiple(CodegenParameter param) {
-    return !(param.getIsBoolean() || isDecimal(param));
+    return !(param.getIsBoolean() ||
+     isDecimal(param) ||
+     param.isDate ||
+     param.isDateTime ||
+     param.isEnum ||
+     param.isEmail);
   }
 
   /*
@@ -180,6 +207,14 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     }
   }
 
+  private boolean isInvalidPattern(String patternString) {
+    // TODO: This is a very basic check, and should be improved.
+    return patternString.contains("(?!") ||
+    patternString.contains("(?=") ||
+    patternString.contains("(?<=") ||
+    patternString.contains("(?<!");
+  }
+
   /**
    * Provides an opportunity to inspect and modify operation data before the code
    * is generated.
@@ -197,25 +232,48 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       String path = co.path;
       String matchPath = path.replaceAll("\\{.*?\\}", "[^/]+");
       co.vendorExtensions.put(MODSECURITY_PATH_REGEX_KEY, matchPath);
-      co.vendorExtensions.put(MODSECURITY_INDEX_KEY, globalIndex++);
+      for (int i=1; i<=MODSECURITY_INDEX_MAX;i++) {
+        co.vendorExtensions.put(MODSECURITY_INDEX_KEY + "_" + i, globalIndex++);
+      }
       LOGGER.debug("Processing operation: {}", co.operationId);
       // example:
       // co.httpMethod = co.httpMethod.toLowerCase();
 
       // Loop through parameters and print information about them
       for (CodegenParameter param : co.allParams) {
-        param.vendorExtensions.put(MODSECURITY_INDEX_KEY, globalIndex++);
+
+        // We don't want to use a different method for required arrays
+        if (param.required && param.isArray && (param.getMinItems() == null || param.getMinItems() == 0)) {
+          LOGGER.debug("Required array parameter: {}", param.baseName);
+          param.setMinItems(1);
+        }
+
+        param.vendorExtensions.put(MODSECURITY_HAS_ARRAY_MIN, (param.getMinItems() != null)); 
+        param.vendorExtensions.put(MODSECURITY_HAS_ARRAY_MAX, (param.getMaxItems() != null)); 
+        for (int i=1; i<=MODSECURITY_INDEX_MAX;i++) {
+          param.vendorExtensions.put(MODSECURITY_INDEX_KEY + "_" + i, globalParamIndex++);
+        }
+
         String patternString = param.pattern;
-        if (patternString == null || patternString.isEmpty()) {
+
+        if(patternString != null && !patternString.isEmpty()) {
+          LOGGER.debug("Config pattern string used: {}", patternString);
+          if(isInvalidPattern(patternString)) {
+            LOGGER.warn("Invalid pattern string: {}", patternString);
+            patternString = null;
+          }
+
+        }
+
+        if(patternString == null || patternString.isEmpty()) {
           patternString = getParamPattern(param);
           LOGGER.debug("Calculated pattern string {}", patternString);
           param.setPattern(patternString);
-        } else {
-          LOGGER.debug("Config pattern string used: {}", patternString);
         }
         LOGGER.debug("param: {}, validation: {}, pattern: {}", param.hasValidation, param.pattern);
         LOGGER.debug("Parameter: {}, data type: {}, isString: {}, max length: {}", param.baseName, param.getDataType(),
             param.isString, param.getMaxLength());
+
       }
     }
 

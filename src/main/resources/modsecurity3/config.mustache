@@ -3,25 +3,50 @@
 
 # {{operationId}}: {{httpMethod}} {{path}}
 # Skip this operation if the request does not match the operation
-SecRule REQUEST_URI "!@restpath {{path}}" "id:{{vendorExtensions.x-codegen-globalIndex}}1,phase:2,pass,nolog,skipAfter:END_{{operationId}}"
+SecRule REQUEST_URI "!@restpath {{path}}" "id:{{vendorExtensions.x-codegen-globalIndex_1}},phase:2,pass,nolog,skipAfter:END_{{operationId}}"
 # Also skip this operation if the request does not *fully* match (if it contains extra path segments)
-SecRule REQUEST_URI "!@rx ^{{vendorExtensions.x-codegen-pathRegex}}(\?.*)?$" "id:{{vendorExtensions.x-codegen-globalIndex}}3,phase:2,pass,nolog,skipAfter:END_{{operationId}}"
+SecRule REQUEST_URI "!@rx ^{{vendorExtensions.x-codegen-pathRegex}}(\?.*)?$" "id:{{vendorExtensions.x-codegen-globalIndex_2}},phase:2,pass,nolog,skipAfter:END_{{operationId}}"
 # Skip this operation if the request method does not match the operation
-SecRule REQUEST_METHOD "!@within {{httpMethod}}" "id:{{vendorExtensions.x-codegen-globalIndex}}2,phase:2,pass,nolog,skipAfter:END_{{operationId}}"
+SecRule REQUEST_METHOD "!@within {{httpMethod}}" "id:{{vendorExtensions.x-codegen-globalIndex_3}},phase:2,pass,nolog,skipAfter:END_{{operationId}}"
 
 {{#allParams}}
 {{#pattern}}
-SecRule REQUEST_URI "@restpath {{path}}" "id:{{vendorExtensions.x-codegen-globalIndex}}1,phase:2,chain,deny,status:403,msg:'Forbidden parameter value detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
-  SecRule ARGS:{{paramName}} "!@rx {{pattern}}" "t:none"
+{{#isPathParam}}
+SecRule ARGS_PATH:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_1}},phase:2,deny,status:403,msg:'Forbidden parameter value detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
+{{^isArray}}
+SecRule &ARGS_PATH:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_2}},phase:2,deny,status:403,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
+{{/isArray}}
+{{/isPathParam}}
+
+{{#isQueryParam}}
+SecRule ARGS_GET:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_3}},phase:2,deny,status:403,msg:'Forbidden parameter value detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
+{{^isArray}}
+SecRule &ARGS_GET:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_4}},phase:2,deny,status:403,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
+{{/isArray}}
+{{#vendorExtensions.x-codegen-hasArrayMin}}
+SecRule &ARGS_GET:{{paramName}} "@lt {{minItems}}" "id:{{vendorExtensions.x-codegen-globalIndex_5}},phase:2,deny,status:403,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
+{{/vendorExtensions.x-codegen-hasArrayMin}}
+{{#vendorExtensions.x-codegen-hasArrayMax}}
+SecRule &ARGS_GET:{{paramName}} "@gt {{maxItems}}" "id:{{vendorExtensions.x-codegen-globalIndex_6}},phase:2,deny,status:403,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
+{{/vendorExtensions.x-codegen-hasArrayMax}}
+{{/isQueryParam}}
+{{#isBodyParam}}
+SecRule ARGS_POST:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_7}},phase:2,deny,status:403,msg:'Forbidden parameter value detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
+{{^isArray}}
+SecRule &ARGS_POST:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_8}},phase:2,deny,status:403,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
+{{/isArray}}
+{{/isBodyParam}}
 {{/pattern}}
 {{/allParams}}
 
 # Check for unknown parameters
-SecRule REQUEST_URI "@restpath {{path}}" "id:{{vendorExtensions.x-codegen-globalIndex}}4,phase:2,chain,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
-  SecRule ARGS_NAMES "!@rx ^({{#allParams}}{{paramName}}{{^-last}}|{{/-last}}{{/allParams}})$" "t:none"
+{{#hasPostParams}}SecRule ARGS_POST_NAMES "!@rx ^({{#postParams}}{{paramName}}{{^-last}}|{{/-last}}{{/postParams}})$" "id:{{vendorExtensions.x-codegen-globalIndex_4}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasPostParams}}
+{{^hasPostParams}}SecRule ARGS_POST_NAMES "@rx ^.+$" "id:{{vendorExtensions.x-codegen-globalIndex_5}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasPostParams}}
+{{#hasQueryParams}}SecRule ARGS_GET_NAMES "!@rx ^({{#queryParams}}{{paramName}}{{^-last}}|{{/-last}}{{/queryParams}})$" "id:{{vendorExtensions.x-codegen-globalIndex_6}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasQueryParams}}
+{{^hasQueryParams}}SecRule ARGS_GET_NAMES "@rx ^.+$" "id:{{vendorExtensions.x-codegen-globalIndex_7}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasQueryParams}}
 
 ## The request passed all checks
-SecAction "phase:2,allow:request,id:{{vendorExtensions.x-codegen-globalIndex}}5"
+SecAction "phase:2,allow:request,id:{{vendorExtensions.x-codegen-globalIndex_8}}"
 
 ## End of checks for this operation
 SecMarker END_{{operationId}}
@@ -30,4 +55,4 @@ SecMarker END_{{operationId}}
 
 # For anything else, deny by default
 SecMarker FAILED_API_CHECKS
-SecAction "id:{{vendorExtensions.x-codegen-globalIndex}}1,log,auditlog,block,phase:2,msg:'Unknown API endpoint'"
+SecAction "id:4220001,log,auditlog,block,phase:2,msg:'Unknown API endpoint'"
