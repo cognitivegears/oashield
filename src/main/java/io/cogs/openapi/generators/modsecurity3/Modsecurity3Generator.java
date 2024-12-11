@@ -22,7 +22,6 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
 
 
   // source folder where to write the files
-  protected String sourceFolder = "src";
   protected String apiVersion = "0.0.1";
 
   protected Long globalIndex = 4200001L; // Default start
@@ -321,19 +320,6 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     templateDir = "modsecurity3";
 
     /**
-     * Api Package. Optional, if needed, this can be used in templates
-     */
-    apiPackage = "org.openapitools.api";
-
-    /**
-     * Reserved words. Override this with reserved words specific to your language
-     */
-    reservedWords = new HashSet<String>(
-        Arrays.asList(
-            "sample1", // replace with static values
-            "sample2"));
-
-    /**
      * Additional Properties. These values can be passed to the templates and
      * are available in models, apis, and supporting files
      */
@@ -381,7 +367,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    * instantiated
    */
   public String modelFileFolder() {
-    String folder = outputFolder + "/" + sourceFolder + "/" + modelPackage().replace('.', File.separatorChar);
+    String folder = outputFolder;
     LOGGER.debug("Model file folder: {}", folder);
     return folder;
   }
@@ -393,7 +379,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    */
   @Override
   public String apiFileFolder() {
-    String folder = outputFolder + "/" + sourceFolder + "/" + apiPackage().replace('.', File.separatorChar);
+    String folder = outputFolder;
     LOGGER.debug("API file folder: {}", folder);
     return folder;
   }
