@@ -1,5 +1,7 @@
 # OpenAPI Generator for ModSecurity3
 
+![oashield_500](https://github.com/user-attachments/assets/b1051f27-ea0e-44a7-9ff1-d37144c956c3)
+
 ## Overview
 This project provides a generator for creating ModSecurity configuration files based on OpenAPI specifications. By leveraging the OpenAPI spec, the generated ModSecurity rules will only allow valid API calls, enhancing security by disallowing any undefined operations.
 
