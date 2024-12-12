@@ -1,4 +1,4 @@
-package io.cogs.openapi.generators.modsecurity3;
+package com.oashield.openapi.generators.modsecurity3;
 
 import org.junit.jupiter.api.Test;
 import org.openapitools.codegen.ClientOptInput;
