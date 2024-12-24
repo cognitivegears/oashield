@@ -3,10 +3,10 @@
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.openapitools</groupId>
-    <artifactId>modsecurity3-openapi-generator</artifactId>
+    <artifactId>oashield</artifactId>
     <packaging>jar</packaging>
-    <name>modsecurity3-openapi-generator</name>
-    <version>0.0.1</version>
+    <name>oashield</name>
+    <version>0.0.2</version>
     <build>
         <plugins>
             <plugin>
@@ -151,7 +151,7 @@
                                     <mainClass>org.openapitools.codegen.OpenAPIGenerator</mainClass>
                                 </manifest>
                             </archive>
-                            <finalName>modsecurity3-cli</finalName>
+                            <finalName>oashield-cli</finalName>
                             <appendAssemblyId>false</appendAssemblyId>
                               <fileSets>
                                 <fileSet>

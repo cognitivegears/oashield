@@ -1,5 +1,5 @@
 {
-  "name": "modsecurity3-openapi-generator",
+  "name": "oashield",
   "image": "mcr.microsoft.com/devcontainers/base:debian",
   "features": {
     "ghcr.io/devcontainers/features/java:1": {
