@@ -22,13 +22,13 @@ Traditional WAF rules rely on pattern matching to detect and block suspicious re
 2. **Run the generator:**
    - Use the following command to generate the ModSecurity configuration:
      ```
-     java -cp /path/to/openapi-generator-cli.jar:target/oashield-0.0.1.jar org.openapitools.codegen.OpenAPIGenerator generate -g modsecurity3 -i /path/to/openapi.yaml -o ./output
+     java -cp /path/to/openapi-generator-cli.jar:target/oashield-0.0.2.jar org.openapitools.codegen.OpenAPIGenerator generate -g modsecurity3 -i /path/to/openapi.yaml -o ./output
      ```
      Replace `/path/to/openapi-generator-cli.jar`, `/path/to/openapi.yaml`, and `./output` with the appropriate paths.
 
    - For Windows users, use `;` instead of `:` in the classpath:
      ```
-     java -cp /path/to/openapi-generator-cli.jar;target/oashield-0.0.1.jar org.openapitools.codegen.OpenAPIGenerator generate -g modsecurity3 -i /path/to/openapi.yaml -o ./output
+     java -cp /path/to/openapi-generator-cli.jar;target/oashield-0.0.2.jar org.openapitools.codegen.OpenAPIGenerator generate -g modsecurity3 -i /path/to/openapi.yaml -o ./output
      ```
 
 3. **Deploy the generated rules:**

@@ -22,7 +22,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
 
 
   // source folder where to write the files
-  protected String apiVersion = "0.0.1";
+  protected String apiVersion = "0.0.2";
 
   protected Long globalIndex = 4200001L; // Default start
   protected Long globalParamIndex = 4210001L; // Default start

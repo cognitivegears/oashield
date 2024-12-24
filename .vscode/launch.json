@@ -10,9 +10,9 @@
             "preLaunchTask": "Build CLI Runner",
             "request": "launch",
             "mainClass": "org.openapitools.codegen.OpenAPIGenerator",
-            "projectName": "modsecurity3-openapi-generator",
+            "projectName": "oashield",
             "classPaths": [
-                "${workspaceFolder}/target/modsecurity3-openapi-generator-0.0.1.jar","${workspaceFolder}/target/modsecurity3-cli.jar"
+                "${workspaceFolder}/target/oashield-0.0.2.jar","${workspaceFolder}/target/oashield-cli.jar"
             ],
             // Add program arguments
             "args": [
@@ -34,12 +34,4 @@
             "default": "samples/petstore.yaml"
         }
     ]
-},
-"inputs": [
-        {
-            "id": "openapiFile",
-            "type": "promptString",
-            "description": "Enter the path to the OpenAPI file",
-            "default": "samples/petstore.yaml"
-        }
-    ]
+}
