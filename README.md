@@ -35,4 +35,4 @@ Traditional WAF rules rely on pattern matching to detect and block suspicious re
    - Copy the generated ModSecurity configuration files from the output path (i.e. `./output`) to your ModSecurity setup.
 
 ## License
-This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE.md) file for details.
