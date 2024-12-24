@@ -143,33 +143,16 @@
                         <artifactId>maven-assembly-plugin</artifactId>
                         <version>3.7.1</version>
                         <configuration>
-                            <descriptorRefs>
-                                <descriptorRef>jar-with-dependencies</descriptorRef>
-                            </descriptorRefs>
+                            <attach>false</attach>
+                            <descriptors>
+                                <descriptor>src/assembly/cli.xml</descriptor>
+                            </descriptors>
                             <archive>
                                 <manifest>
                                     <mainClass>org.openapitools.codegen.OpenAPIGenerator</mainClass>
                                 </manifest>
                             </archive>
-                            <finalName>oashield-cli</finalName>
-                            <appendAssemblyId>false</appendAssemblyId>
-                              <fileSets>
-                                <fileSet>
-                                  <directory>${project.build.outputDirectory}</directory>
-                                  <outputDirectory>/</outputDirectory>
-                                  <includes>
-                                    <include>**/*</include>
-                                  </includes>
-                                </fileSet>
-                              </fileSets>
-                            <dependencySets>
-                                <dependencySet>
-                                  <outputDirectory>/</outputDirectory>
-                                  <useProjectArtifact>true</useProjectArtifact>
-                                  <unpack>true</unpack>
-                                  <scope>runtime</scope>
-                                </dependencySet>
-                              </dependencySets>
+                            <finalName>oashield</finalName>
                         </configuration>
                         <executions>
                             <execution>
