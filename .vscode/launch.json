@@ -12,7 +12,7 @@
             "mainClass": "org.openapitools.codegen.OpenAPIGenerator",
             "projectName": "oashield",
             "classPaths": [
-                "${workspaceFolder}/target/oashield-0.0.2.jar","${workspaceFolder}/target/oashield-cli.jar"
+                "${workspaceFolder}/target/oashield-cli.jar"
             ],
             // Add program arguments
             "args": [

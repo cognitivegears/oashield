@@ -140,27 +140,23 @@
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-assembly-plugin</artifactId>
-                        <version>3.7.1</version>
-                        <configuration>
-                            <attach>false</attach>
-                            <descriptors>
-                                <descriptor>src/assembly/cli.xml</descriptor>
-                            </descriptors>
-                            <archive>
-                                <manifest>
-                                    <mainClass>org.openapitools.codegen.OpenAPIGenerator</mainClass>
-                                </manifest>
-                            </archive>
-                            <finalName>oashield</finalName>
-                        </configuration>
+                        <artifactId>maven-shade-plugin</artifactId>
+                        <version>3.4.1</version>
                         <executions>
                             <execution>
-                                <id>make-assembly</id>
                                 <phase>package</phase>
                                 <goals>
-                                    <goal>single</goal>
+                                    <goal>shade</goal>
                                 </goals>
+                                <configuration>
+                                    <createDependencyReducedPom>false</createDependencyReducedPom>
+                                    <transformers>
+                                        <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                            <mainClass>org.openapitools.codegen.OpenAPIGenerator</mainClass>
+                                        </transformer>
+                                    </transformers>
+                                    <finalName>oashield-cli</finalName>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>

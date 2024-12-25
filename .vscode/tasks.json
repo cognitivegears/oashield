@@ -26,7 +26,7 @@
       "command": "java",
       "args": [
         "-cp",
-        "target/oashield-0.0.2.jar:target/oashield-cli.jar",
+        "target/oashield-cli.jar",
         "org.openapitools.codegen.OpenAPIGenerator",
         "generate",
         "-g",
