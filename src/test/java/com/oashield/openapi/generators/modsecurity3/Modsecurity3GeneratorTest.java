@@ -25,9 +25,10 @@ public class Modsecurity3GeneratorTest {
     // https://github.com/OpenAPITools/openapi-generator/blob/master/modules/openapi-generator-cli/src/main/java/org/openapitools/codegen/cmd/Generate.java
     final CodegenConfigurator configurator = new CodegenConfigurator()
               .setGeneratorName("modsecurity3") // use this codegen library
-              .setInputSpec("../../../modules/openapi-generator/src/test/resources/2_0/petstore.yaml") // sample OpenAPI file
-              // .setInputSpec("https://raw.githubusercontent.com/openapitools/openapi-generator/master/modules/openapi-generator/src/test/resources/2_0/petstore.yaml") // or from the server
-              .setOutputDir("out/modsecurity3"); // output directory
+              //.setInputSpec("../../../../../../samples/petstore.yaml") // sample OpenAPI file
+              //.setInputSpec("https://raw.githubusercontent.com/openapitools/openapi-generator/master/modules/openapi-generator/src/test/resources/2_0/petstore.yaml") // or from the server
+              .setInputSpec("samples/petstore.yaml")
+              .setOutputDir("output/modsecurity3"); // output directory
 
     final ClientOptInput clientOptInput = configurator.toClientOptInput();
     DefaultGenerator generator = new DefaultGenerator();
