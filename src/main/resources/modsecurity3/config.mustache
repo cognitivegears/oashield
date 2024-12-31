@@ -42,8 +42,8 @@ SecRule &ARGS_POST:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-global
 # Check for unknown parameters
 {{#hasPostParams}}SecRule ARGS_POST_NAMES "!@rx ^({{#postParams}}{{paramName}}{{^-last}}|{{/-last}}{{/postParams}})$" "id:{{vendorExtensions.x-codegen-globalIndex_4}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasPostParams}}
 {{^hasPostParams}}SecRule ARGS_POST_NAMES "@rx ^.+$" "id:{{vendorExtensions.x-codegen-globalIndex_5}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasPostParams}}
-{{#hasQueryParams}}SecRule ARGS_GET_NAMES "!@rx ^({{#queryParams}}{{paramName}}{{^-last}}|{{/-last}}{{/queryParams}})$" "id:{{vendorExtensions.x-codegen-globalIndex_6}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasQueryParams}}
-{{^hasQueryParams}}SecRule ARGS_GET_NAMES "@rx ^.+$" "id:{{vendorExtensions.x-codegen-globalIndex_7}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasQueryParams}}
+{{#hasQueryParams}}SecRule ARGS_GET_NAMES "!@rx ^({{#queryParams}}{{paramName}}{{^-last}}|{{/-last}}{{/queryParams}}{{#vendorExtensions.x-codegen-authParam}}|{{vendorExtensions.x-codegen-authParam}}{{/vendorExtensions.x-codegen-authParam}})$" "id:{{vendorExtensions.x-codegen-globalIndex_6}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasQueryParams}}
+{{^hasQueryParams}}SecRule ARGS_GET_NAMES "{{#vendorExtensions.x-codegen-authParam}}!@rx ^({{vendorExtensions.x-codegen-authParam}})*${{/vendorExtensions.x-codegen-authParam}}{{^vendorExtensions.x-codegen-authParam}}@rx .+${{/vendorExtensions.x-codegen-authParam}}" "id:{{vendorExtensions.x-codegen-globalIndex_7}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasQueryParams}}
 
 ## The request passed all checks
 SecAction "phase:2,allow:request,id:{{vendorExtensions.x-codegen-globalIndex_8}}"
