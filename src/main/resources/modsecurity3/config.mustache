@@ -3,9 +3,9 @@
 
 # {{operationId}}: {{httpMethod}} {{path}}
 # Skip this operation if the request does not match the operation
-SecRule REQUEST_URI "!@restpath {{path}}" "id:{{vendorExtensions.x-codegen-globalIndex_1}},phase:2,pass,nolog,skipAfter:END_{{operationId}}"
+SecRule REQUEST_FILENAME "!@restpath {{path}}" "id:{{vendorExtensions.x-codegen-globalIndex_1}},phase:2,pass,nolog,skipAfter:END_{{operationId}}"
 # Also skip this operation if the request does not *fully* match (if it contains extra path segments)
-SecRule REQUEST_URI "!@rx ^{{vendorExtensions.x-codegen-pathRegex}}(\?.*)?$" "id:{{vendorExtensions.x-codegen-globalIndex_2}},phase:2,pass,nolog,skipAfter:END_{{operationId}}"
+SecRule REQUEST_FILENAME "!@rx ^{{vendorExtensions.x-codegen-pathRegex}}$" "id:{{vendorExtensions.x-codegen-globalIndex_2}},phase:2,pass,nolog,skipAfter:END_{{operationId}}"
 # Skip this operation if the request method does not match the operation
 SecRule REQUEST_METHOD "!@within {{httpMethod}}" "id:{{vendorExtensions.x-codegen-globalIndex_3}},phase:2,pass,nolog,skipAfter:END_{{operationId}}"
 
