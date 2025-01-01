@@ -19,7 +19,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
   private static final String VENDOR_EXTENSIONS_KEY = "vendorExtensions";
   private static final String MODSECURITY_HAS_ARRAY_MIN = "x-codegen-hasArrayMin";
   private static final String MODSECURITY_HAS_ARRAY_MAX = "x-codegen-hasArrayMax";
-
+  private static final String MODSECURITY_AUTH_PARAM = "x-codegen-authParam";
 
   // source folder where to write the files
   protected String apiVersion = "0.0.2";
@@ -274,13 +274,39 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
             param.isString, param.getMaxLength());
 
       }
+
+      addAuthParameters(co);
     }
+
+    
 
     Map<String, Object> vendorExtensions = new HashMap<String, Object>();
     vendorExtensions.put(MODSECURITY_INDEX_KEY, globalIndex++);
     results.put(VENDOR_EXTENSIONS_KEY, vendorExtensions);
 
     return results;
+  }
+
+  private void addAuthParameters(CodegenOperation co) {
+    if(co.hasAuthMethods) {
+      LOGGER.debug("Operation: {}, has auth methods: {}", co.operationId, co.hasAuthMethods);
+      co.authMethods.forEach((authMethod) -> {
+        LOGGER.debug("Auth method: {}", authMethod);
+        if(authMethod.isKeyInQuery) {
+          LOGGER.debug("Key in query: {}", authMethod.keyParamName);
+          String paramName = authMethod.keyParamName;
+          if(paramName != null && !paramName.isEmpty()) {
+            // Spec supports multiple auth params
+            if(co.vendorExtensions.containsKey(MODSECURITY_AUTH_PARAM)) {
+              paramName = co.vendorExtensions.get(MODSECURITY_AUTH_PARAM) + "|" + paramName;
+            }
+            else {
+              co.vendorExtensions.put(MODSECURITY_AUTH_PARAM, paramName);
+            }
+          }
+        }
+      });
+    }
   }
 
   /**
