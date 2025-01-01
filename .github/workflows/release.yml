@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Java
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'adopt'
+          java-version: '11'
+
+      - name: Build with Maven
+        run: mvn clean package -P build-cli-jar
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload JAR file
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/oashield-*.jar
+          asset_name: oashield-${{ github.ref }}.jar
+          asset_content_type: application/java-archive
+
+      - name: Upload CLI JAR file
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/oashield-cli.jar
+          asset_name: oashield-cli.jar
+          asset_content_type: application/java-archive
+
+      - name: Set up GPG
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --batch --import-ownertrust
+
+      - name: Deploy to Maven Central
+        run: mvn deploy -P build-cli-jar -DskipTests --settings .github/maven-settings.xml
+
+      - name: Update version in pom.xml
+        run: |
+          new_version=$(echo ${{ github.ref }} | sed 's/v//')
+          mvn versions:set -DnewVersion=$new_version
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git add pom.xml
+          git commit -m "Update version to $new_version"
+          git push origin HEAD:main
