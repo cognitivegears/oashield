@@ -1,1 +1,10 @@
 # This is the main configuration file that will include the other configurations
+
+# Include the configuration for each operation
+{{#operations}}
+{{> config}}
+{{/operations}}
+
+# For anything else, deny by default
+SecMarker FAILED_API_CHECKS
+SecAction "id:4220001,log,auditlog,block,phase:2,msg:'Unknown API endpoint'"

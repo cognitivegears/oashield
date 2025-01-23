@@ -1,4 +1,17 @@
 {
     "java.compile.nullAnalysis.mode": "automatic",
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "interactive",
+
+    // Set the default vmargs to exclude SVE extension using -XX:+UseSVE=0
+    "java.jdt.ls.vmargs": "-XX:UseSVE=0",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-21",
+            "path": "/usr/local/sdkman/candidates/java/current",
+            "sources": "/usr/local/sdkman/candidates/java/current/lib/src.zip",
+            "javadoc": "https://docs.oracle.com/en/java/javase/21/docs/api",
+            "default": true
+        }
+    ]
+
 }
