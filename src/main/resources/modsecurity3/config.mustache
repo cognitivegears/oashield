@@ -45,8 +45,44 @@ SecRule &ARGS_POST:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-global
 {{#hasQueryParams}}SecRule ARGS_GET_NAMES "!@rx ^({{#queryParams}}{{paramName}}{{^-last}}|{{/-last}}{{/queryParams}})$" "id:{{vendorExtensions.x-codegen-globalIndex_6}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasQueryParams}}
 {{^hasQueryParams}}SecRule ARGS_GET_NAMES "@rx ^.+$" "id:{{vendorExtensions.x-codegen-globalIndex_7}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasQueryParams}}
 
+# Handle Models
+{{#consumes}}
+{{#isJson}}
+SecRule REQUEST_HEADERS:Content-Type "!@eq {{mediaType}}" "id:{{vendorExtensions.x-codegen-globalIndex_8}},phase:2,pass,skipAfter:ENDJSON_{{operationId}}"
+SecAction "phase:2,ctl:requestBodyProcessor=JSON"
+SecRule REQBODY_ERROR "!eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_9}},phase:2,pass,skipAfter:ENDJSON_{{operationId}}"
+
+# @validateSchema isn't implemented in Coraza
+# Instead, we'll need to check each field individually
+# TODO: Implement schema validation
+
+SecMarker ENDJSON_{{operationId}}
+{{/isJson}}
+{{#isXml}}
+SecRule REQUEST_HEADERS:Content-Type "!@eq {{mediaType}}" "id:{{vendorExtensions.x-codegen-globalIndex_11}},phase:2,pass,skipAfter:ENDXML_{{operationId}}"
+SecAction "phase:2,ctl:requestBodyProcessor=XML"
+SecRule REQBODY_ERROR "!eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_8}},phase:2,pass,skipAfter:ENDXML_{{operationId}}"
+
+# @validateSchema isn't implemented in Coraza
+# Instead, we'll need to check each field individually
+# TODO: Implement schema validation
+
+SecMarker ENDXML_{{operationId}}
+{{/isXml}}
+{{/consumes}}
+
+{{^consumes}}
+SecAction "phase:2,skipAfter:AFTER_CONSUMES_{{operationId}}"
+{{/consumes}}
+
+# Action has consumes, but it wasn't matched - validation must have failed for both JSON and XML
+SecAction "id:{{vendorExtensions.x-codegen-globalIndex_8}},log,auditlog,block,phase:2,msg:'Body processing failed - invalid data content?'"
+
+
+SecMarker AFTER_CONSUMES_{{operationId}}
+
 ## The request passed all checks
-SecAction "phase:2,allow:request,id:{{vendorExtensions.x-codegen-globalIndex_8}}"
+SecAction "phase:2,allow:request,id:{{vendorExtensions.x-codegen-globalIndex_9}}"
 
 ## End of checks for this operation
 SecMarker END_{{operationId}}

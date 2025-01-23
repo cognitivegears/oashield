@@ -1,5 +1,6 @@
 package com.oashield.openapi.generators.modsecurity3;
 
+import org.commonmark.node.Code;
 import org.openapitools.codegen.*;
 import org.openapitools.codegen.model.*;
 import io.swagger.models.properties.*;
@@ -19,6 +20,9 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
   private static final String VENDOR_EXTENSIONS_KEY = "vendorExtensions";
   private static final String MODSECURITY_HAS_ARRAY_MIN = "x-codegen-hasArrayMin";
   private static final String MODSECURITY_HAS_ARRAY_MAX = "x-codegen-hasArrayMax";
+  private static final String MODSECURITY_HAS_JSON = "x-codegen-isJson";
+  private static final String MODSECURITY_HAS_XML = "x-codegen-isXml";
+  private static final String MODSECURITY_MODEL_PROPERTIES = "x-codegen-modelProperties";
 
 
   // source folder where to write the files
@@ -238,6 +242,30 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       // example:
       // co.httpMethod = co.httpMethod.toLowerCase();
 
+      Boolean includeRequestJSON = false;
+      Boolean includeRequestXML = false;
+
+      if(co.hasConsumes) {
+        LOGGER.debug("Operation: {} Consumes: {}", co.baseName, co.consumes);
+        // Check if the operation consumes JSON or XML
+        for (Map<String, String> consume : co.consumes) {
+          if (consume.containsValue("isJson")) {
+            String isJsonString = consume.get("isJson");
+            includeRequestJSON = isJsonString != null && isJsonString.equals("true");
+          }
+          if (consume.containsValue("isXml")) {
+            String isXmlString = consume.get("isXml");
+            includeRequestXML = isXmlString != null && isXmlString.equals("true");
+          }
+        }
+      }
+
+      // Add vendor extension for JSON and XML
+      co.vendorExtensions.put(MODSECURITY_HAS_JSON, includeRequestJSON);
+      co.vendorExtensions.put(MODSECURITY_HAS_XML, includeRequestXML);
+
+      ArrayList<CodegenProperty> allParams = new ArrayList<CodegenProperty>();
+
       // Loop through parameters and print information about them
       for (CodegenParameter param : co.allParams) {
 
@@ -245,6 +273,25 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
         if (param.required && param.isArray && (param.getMinItems() == null || param.getMinItems() == 0)) {
           LOGGER.debug("Required array parameter: {}", param.baseName);
           param.setMinItems(1);
+        }
+
+        if (param.isModel) {
+          LOGGER.debug("Model parameter: {}", param.baseName);
+          // We need to flatten the model into something that can be used in the template
+          // This will be a new vendor extension with an array of properties that represent
+          // the model
+          List<CodegenProperty> flattenedProperties = new ArrayList<CodegenProperty>();
+          for (CodegenProperty prop : param.vars) {
+            // We need to create a new CodegenParameter for each property
+            // Unless the property is a model, then we need to flatten that model
+            // into properties
+
+            List<CodegenProperty> properties = flattenModel(prop, param.baseName + ".");
+            flattenedProperties.addAll(properties);
+          }
+
+          // Add the flattened properties to the parameter
+          param.vendorExtensions.put(MODSECURITY_MODEL_PROPERTIES, flattenedProperties);
         }
 
         param.vendorExtensions.put(MODSECURITY_HAS_ARRAY_MIN, (param.getMinItems() != null)); 
@@ -281,6 +328,44 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     results.put(VENDOR_EXTENSIONS_KEY, vendorExtensions);
 
     return results;
+  }
+
+  private List<CodegenProperty> flattenModel(CodegenProperty currentProperty, String baseNamePrefix) {
+    List<CodegenProperty> properties = new ArrayList<CodegenProperty>();
+
+    // There are 3 cases to consider:
+    // 1. The property is a model
+    if(currentProperty.isModel) {
+      // Recursively flatten the model
+      LOGGER.debug("Flattening model property: {}", currentProperty.baseName);
+      baseNamePrefix += currentProperty.baseName + ".";
+      for(CodegenProperty prop : currentProperty.vars) {
+        List<CodegenProperty> flattenedProperties = flattenModel(prop, baseNamePrefix);
+        properties.addAll(flattenedProperties);
+      }
+    }
+
+    // 2. The property is an array of models
+    else if(currentProperty.isArray) {
+      // Recursively flatten the model
+      LOGGER.debug("Flattening array of model property: {}", currentProperty.baseName);
+      int i = 0;
+      for(CodegenProperty prop : currentProperty.vars) {
+        List<CodegenProperty> flattenedProperties = flattenModel(prop, baseNamePrefix + "." + i + ".");
+        i++;
+        properties.addAll(flattenedProperties);
+      }
+    }
+
+    // 3. The property is a primitive type
+    else {
+      LOGGER.debug("Adding property: {}", currentProperty.baseName);
+      // Add the baseNamePrefix to the property
+      currentProperty.baseName = baseNamePrefix + currentProperty.baseName;
+      properties.add(currentProperty);
+    }
+
+    return properties;
   }
 
   /**
