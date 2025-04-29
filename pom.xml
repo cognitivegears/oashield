@@ -40,7 +40,7 @@
                             <value>conf/log4j.properties</value>
                         </property>
                     </systemPropertyVariables>
-                    <argLine>-Xms512m -Xmx1500m</argLine>
+                    <!-- Don't hardcode argLine to allow JaCoCo to set it -->
                     <parallel>methods</parallel>
                 </configuration>
             </plugin>
@@ -102,6 +102,27 @@
                     <source>1.8</source>
                     <target>1.8</target>
                 </configuration>
+            </plugin>
+            <!-- JaCoCo plugin for code coverage -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
