@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * Enum representing different JSON Schema types with their specific behavior.
  */
 public enum SchemaType {
-    
+
     INTEGER {
         @Override
         public void applyToNode(ObjectNode node) {
@@ -15,7 +15,7 @@ public enum SchemaType {
             node.remove("$ref");
         }
     },
-    
+
     NUMBER {
         @Override
         public void applyToNode(ObjectNode node) {
@@ -24,7 +24,7 @@ public enum SchemaType {
             node.remove("$ref");
         }
     },
-    
+
     BOOLEAN {
         @Override
         public void applyToNode(ObjectNode node) {
@@ -33,7 +33,7 @@ public enum SchemaType {
             node.remove("$ref");
         }
     },
-    
+
     STRING {
         @Override
         public void applyToNode(ObjectNode node) {
@@ -42,7 +42,7 @@ public enum SchemaType {
             node.remove("$ref");
         }
     },
-    
+
     STRING_DATE {
         @Override
         public void applyToNode(ObjectNode node) {
@@ -52,7 +52,7 @@ public enum SchemaType {
             node.remove("$ref");
         }
     },
-    
+
     STRING_DATETIME {
         @Override
         public void applyToNode(ObjectNode node) {
@@ -62,7 +62,7 @@ public enum SchemaType {
             node.remove("$ref");
         }
     },
-    
+
     STRING_EMAIL {
         @Override
         public void applyToNode(ObjectNode node) {
@@ -72,7 +72,7 @@ public enum SchemaType {
             node.remove("$ref");
         }
     },
-    
+
     STRING_UUID {
         @Override
         public void applyToNode(ObjectNode node) {
@@ -118,7 +118,7 @@ public enum SchemaType {
             node.remove("$ref");
         }
     },
-    
+
     OBJECT {
         @Override
         public void applyToNode(ObjectNode node) {
@@ -127,7 +127,7 @@ public enum SchemaType {
             node.remove("$ref");
         }
     },
-    
+
     ARRAY {
         @Override
         public void applyToNode(ObjectNode node) {
@@ -135,7 +135,7 @@ public enum SchemaType {
             // Note: items must be set separately
         }
     };
-    
+
     /**
      * Apply this schema type to a JSON node.
      *

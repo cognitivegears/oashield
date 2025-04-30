@@ -33,21 +33,21 @@ public class JsonSchemaTypeMapperTest {
     @Test
     public void testApplyTypeToPropertyWithNullType() {
         typeMapper.applyTypeToProperty(null, testNode);
-        
+
         assertEquals("string", testNode.get("type").asText());
     }
 
     @Test
     public void testApplyTypeToItemsWithNullType() {
         typeMapper.applyTypeToItems(null, testNode);
-        
+
         assertEquals("string", testNode.get("type").asText());
     }
 
     @Test
     public void testApplyPrimitiveTypeWithNullType() {
         typeMapper.applyPrimitiveType(null, testNode);
-        
+
         assertEquals("string", testNode.get("type").asText());
     }
 
@@ -56,10 +56,10 @@ public class JsonSchemaTypeMapperTest {
         // Test with uppercase type name
         typeMapper.applyTypeToProperty("STRING", testNode);
         assertEquals("string", testNode.get("type").asText());
-        
+
         // Clear the node
         testNode.removeAll();
-        
+
         // Test with mixed case type name
         typeMapper.applyTypeToProperty("StRiNg", testNode);
         assertEquals("string", testNode.get("type").asText());

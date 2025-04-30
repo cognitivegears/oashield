@@ -31,11 +31,11 @@ public class TemplateManagerTest {
     public void setup() {
         // Create a real generator to use in tests
         mockGenerator = new Modsecurity3Generator();
-        
+
         // Setup the mock configuration manager
         mockConfigManager = new ConfigurationManager(mockGenerator);
         mockConfigManager.setOutputFolder(testOutputFolder);
-        
+
         // Create TemplateManager instance to test
         // Pass both required arguments to the constructor
         templateManager = new TemplateManager(mockGenerator, mockConfigManager);
@@ -66,19 +66,19 @@ public class TemplateManagerTest {
         // Clear any existing templates
         mockGenerator.apiTemplateFiles().clear();
         mockGenerator.supportingFiles().clear();
-        
+
         // Configure templates
         templateManager.configureTemplates();
-        
+
         // Verify API template files
         assertTrue(mockGenerator.apiTemplateFiles().containsKey("config.mustache"));
         assertEquals(".conf", mockGenerator.apiTemplateFiles().get("config.mustache"));
-        
+
         // Verify supporting files
         boolean foundMainConfig = false;
         for (SupportingFile file : mockGenerator.supportingFiles()) {
-            if (file.getTemplateFile().equals("mainconfig.mustache") && 
-                file.getFolder().equals("") && 
+            if (file.getTemplateFile().equals("mainconfig.mustache") &&
+                file.getFolder().equals("") &&
                 file.getDestinationFilename().equals("mainconfig.conf")) {
                 foundMainConfig = true;
                 break;
@@ -92,10 +92,10 @@ public class TemplateManagerTest {
         // Clear any existing templates
         mockGenerator.apiTemplateFiles().clear();
         mockGenerator.supportingFiles().clear();
-        
+
         // Initialize the template manager
         templateManager.initialize();
-        
+
         // Verify templates were configured
         assertFalse(mockGenerator.apiTemplateFiles().isEmpty());
         assertFalse(mockGenerator.supportingFiles().isEmpty());
