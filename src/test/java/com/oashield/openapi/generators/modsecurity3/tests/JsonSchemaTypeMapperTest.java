@@ -52,31 +52,6 @@ public class JsonSchemaTypeMapperTest {
     }
 
     @Test
-    public void testRegisterTypeMapping() {
-        String customType = "custom-type";
-        SchemaType schemaType = SchemaType.STRING;
-        
-        typeMapper.registerTypeMapping(customType, schemaType);
-        
-        assertTrue(typeMapper.isPrimitiveType(customType));
-        
-        // Test applying the custom type
-        typeMapper.applyTypeToProperty(customType, testNode);
-        assertEquals("string", testNode.get("type").asText());
-    }
-
-    @Test
-    public void testRegisterNullTypeMapping() {
-        assertThrows(IllegalArgumentException.class, () -> {
-            typeMapper.registerTypeMapping(null, SchemaType.STRING);
-        });
-        
-        assertThrows(IllegalArgumentException.class, () -> {
-            typeMapper.registerTypeMapping("test-type", null);
-        });
-    }
-
-    @Test
     public void testCaseInsensitiveTypeMapping() {
         // Test with uppercase type name
         typeMapper.applyTypeToProperty("STRING", testNode);

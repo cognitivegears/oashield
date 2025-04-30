@@ -13,7 +13,6 @@ import org.openapitools.codegen.model.ModelsMap;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Utility class for generating JSON Schema documents from OpenAPI models.
@@ -352,6 +351,31 @@ public class JsonSchemaGenerator {
         // Unique items (for arrays)
         if (var.getUniqueItems()) {
             property.put("uniqueItems", true);
+        }
+    }
+
+    /**
+     * Exception thrown when there is an error during JSON schema generation.
+     */
+    public static class SchemaGenerationException extends Exception {
+
+        /**
+         * Constructs a new schema generation exception with the specified detail message.
+         *
+         * @param message the detail message
+         */
+        public SchemaGenerationException(String message) {
+            super(message);
+        }
+
+        /**
+         * Constructs a new schema generation exception with the specified detail message and cause.
+         *
+         * @param message the detail message
+         * @param cause the cause of the exception
+         */
+        public SchemaGenerationException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 }

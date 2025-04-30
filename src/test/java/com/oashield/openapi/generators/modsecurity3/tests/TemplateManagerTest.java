@@ -37,7 +37,8 @@ public class TemplateManagerTest {
         mockConfigManager.setOutputFolder(testOutputFolder);
         
         // Create TemplateManager instance to test
-        templateManager = new TemplateManager(mockConfigManager);
+        // Pass both required arguments to the constructor
+        templateManager = new TemplateManager(mockGenerator, mockConfigManager);
     }
 
     @Test

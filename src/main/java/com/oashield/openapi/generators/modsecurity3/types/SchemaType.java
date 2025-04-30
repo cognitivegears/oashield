@@ -82,6 +82,42 @@ public enum SchemaType {
             node.remove("$ref");
         }
     },
+
+    STRING_URI {
+        @Override
+        public void applyToNode(ObjectNode node) {
+            node.put("type", "string");
+            node.put("format", "uri");
+            node.remove("$ref");
+        }
+    },
+
+    STRING_HOSTNAME {
+        @Override
+        public void applyToNode(ObjectNode node) {
+            node.put("type", "string");
+            node.put("format", "hostname");
+            node.remove("$ref");
+        }
+    },
+
+    STRING_IPV4 {
+        @Override
+        public void applyToNode(ObjectNode node) {
+            node.put("type", "string");
+            node.put("format", "ipv4");
+            node.remove("$ref");
+        }
+    },
+
+    STRING_IPV6 {
+        @Override
+        public void applyToNode(ObjectNode node) {
+            node.put("type", "string");
+            node.put("format", "ipv6");
+            node.remove("$ref");
+        }
+    },
     
     OBJECT {
         @Override

@@ -15,7 +15,7 @@ import lombok.extern.slf4j.Slf4j;
  * classes for better separation of concerns.
  */
 @Slf4j
-public class Modsecurity3Generator extends DefaultCodegen implements CodegenConfig {
+public class Modsecurity3Generator extends DefaultCodegen {
 
     // Service components and managers
     private final PatternGenerationService patternGenerationService;
@@ -31,6 +31,30 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     public Modsecurity3Generator() {
         super();
         log.debug("Initializing Modsecurity3Generator");
+
+        // Initialize type mappings for JSON Schema base types
+        // This aligns with DefaultCodegen expectations, though JsonSchemaGenerator uses its own mapper.
+        typeMapping = new HashMap<>();
+        typeMapping.put("integer", "integer");
+        typeMapping.put("int", "integer");
+        typeMapping.put("long", "integer");
+        typeMapping.put("float", "number");
+        typeMapping.put("double", "number");
+        typeMapping.put("number", "number");
+        typeMapping.put("decimal", "number");
+        typeMapping.put("boolean", "boolean");
+        typeMapping.put("string", "string");
+        typeMapping.put("date", "string"); // Base type is string
+        typeMapping.put("date-time", "string"); // Base type is string
+        typeMapping.put("DateTime", "string"); // Base type is string
+        typeMapping.put("byte", "string"); // Base type is string
+        typeMapping.put("binary", "string"); // Base type is string
+        typeMapping.put("password", "string"); // Base type is string
+        typeMapping.put("email", "string"); // Base type is string
+        typeMapping.put("uuid", "string"); // Base type is string
+        typeMapping.put("object", "object");
+        typeMapping.put("array", "array");
+        typeMapping.put("map", "object");
 
         // Initialize the pattern generation service
         this.patternGenerationService = new PatternGenerationService();
@@ -52,25 +76,12 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
         // Initialize templates
         templateManager.initialize();
 
-        // Configure language specific primitives
-        configureLanguageSpecificPrimitives();
-
         // Initialize fields for backward compatibility with tests
         this.globalIndex = operationProcessor.getGlobalIndex();
         this.jsonSchemaOutputFile = configManager.getJsonSchemaOutputFile();
         this.outputFolder = configManager.getOutputFolder();
 
         log.debug("Modsecurity3Generator initialized with output folder: {}", configManager.getOutputFolder());
-    }
-
-    /**
-     * Configure language specific primitives.
-     */
-    private void configureLanguageSpecificPrimitives() {
-        languageSpecificPrimitives = new HashSet<String>(
-            Arrays.asList(
-                "Type1", // replace these with your types
-                "Type2"));
     }
 
     /**
