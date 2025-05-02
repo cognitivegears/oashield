@@ -1,0 +1,50 @@
+name: OAShield CLI Build
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: Build with Maven
+      run: mvn -B package -P build-cli-jar -Dskip.http.calls=true
+    
+    - name: Upload CLI JAR
+      uses: actions/upload-artifact@v3
+      with:
+        name: oashield-cli-jar
+        path: target/oashield-cli.jar
+    
+    - name: Test CLI functionality
+      run: |
+        mkdir -p samples/output-test
+        java -cp target/oashield-cli.jar org.openapitools.codegen.OpenAPIGenerator generate -g modsecurity3 -i samples/petstore.yaml -o samples/output-test
+        if [ ! -f samples/output-test/mainconfig.conf ]; then
+          echo "Failed to generate ModSecurity rules"
+          exit 1
+        fi
+    
+    # Create release when a new tag is pushed
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          target/oashield-cli.jar
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

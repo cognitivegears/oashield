@@ -3,7 +3,7 @@
   "image": "mcr.microsoft.com/devcontainers/base:debian",
   "features": {
     "ghcr.io/devcontainers/features/java:1": {
-      "version": "11",
+      "version": "21",
       "installMaven": true
     },
     "ghcr.io/devcontainers/features/node:1": {
@@ -18,12 +18,13 @@
     "vscode": {
       // Set *default* container specific settings.json values on container create.
       "settings": {
+        "java.jdt.ls.vmargs": "-XX:+UseSVE=0",
         "java.configuration.runtimes": [
           {
-            "name": "JavaSE-11",
+            "name": "JavaSE-21",
             "path": "/usr/local/sdkman/candidates/java/current",
             "sources": "/usr/local/sdkman/candidates/java/current/lib/src.zip",
-            "javadoc": "https://docs.oracle.com/en/java/javase/11/docs/api",
+            "javadoc": "https://docs.oracle.com/en/java/javase/21/docs/api",
             "default": true
           }
         ]
@@ -45,6 +46,11 @@
   // "postCreateCommand": "mvn clean package -DskipTests",
   // Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
   "remoteUser": "vscode",
+   "containerUser": "vscode",
+   "updateRemoteUserUID": true,
+   "containerEnv": {
+     "HOME": "/home/vscode"
+   },
 
   "mounts": [
     "type=bind,source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,readonly",

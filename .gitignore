@@ -70,3 +70,4 @@ ehthumbs.db
 Thumbs.db
 
 output/
+**/.claude/settings.local.json
