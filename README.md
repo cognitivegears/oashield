@@ -49,5 +49,69 @@ This will produce a JAR file `oashield-cli.jar` in the `target` directory.
 
 Copy the generated ModSecurity configuration files from the output path (i.e. `/path/to/output/dir`) to your ModSecurity setup.
 
+## Testing
+
+### Unit Tests
+
+Run the unit tests with:
+
+```bash
+mvn test
+```
+
+### Integration Tests
+
+Integration tests validate the generated rules against a real ModSecurity-compatible WAF (Coraza). These tests require Docker to be installed and running.
+
+Run the integration tests with:
+
+```bash
+mvn verify
+```
+
+or specifically:
+
+```bash
+mvn failsafe:integration-test failsafe:verify
+```
+
+The integration tests:
+- Generate ModSecurity rules from sample OpenAPI specifications
+- Launch a Coraza WAF container with the generated rules
+- Send HTTP requests to validate that the rules correctly enforce the API specification
+- Test various scenarios including parameter validation, path validation, and method validation
+
+Test reports are generated in the `target/extent-reports` directory.
+
+#### Note for ARM Architecture Users (Mac M1/M2/M3)
+
+Integration tests now support ARM-based systems (like Mac M1/M2/M3) as the Docker container is available for ARM architecture. You can run the integration tests normally on ARM systems:
+
+```bash
+mvn verify
+```
+
+If you want to skip the HTTP calls for any reason, you can use:
+
+```bash
+mvn verify -Dskip.http.calls=true
+```
+
+You can also run tests with relaxed validation for status codes (useful when running on systems where some rules may not work correctly yet):
+
+```bash
+mvn verify -Dskip.strict.validation=true
+```
+
+### Continuous Integration
+
+This project uses GitHub Actions for continuous integration:
+
+- **OAShield Tests**: Runs on all PRs and pushes to the main branch, executing unit and integration tests.
+- **OAShield CLI Build**: Builds the CLI JAR and verifies its functionality.
+- **OAShield CI**: Comprehensive workflow that builds, tests, and verifies both the library and CLI.
+
+The GitHub Actions workflows automatically skip HTTP calls during testing to ensure compatibility with the CI environment.
+
 ## License
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE.md) file for details.
