@@ -184,10 +184,13 @@ public class Modsecurity3Generator extends DefaultCodegen {
      * @return string with quotation mark removed or escaped
      */
     public String escapeQuotationMark(String input) {
-        log.debug("Escaping quotation marks in input");
-        // TODO: check that this logic is safe to escape quotation mark to avoid code
-        // injection
-        return input.replace("\"", "\\\"");
+        log.debug("Escaping input");
+        if (input == null) {
+            return null;
+        }
+        String result = input.replace("\\", "\\\\");
+        result = result.replace("'", "\\'");
+        return result.replace("\"", "\\\"");
     }
 
     /**

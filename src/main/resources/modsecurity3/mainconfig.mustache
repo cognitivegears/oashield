@@ -2,12 +2,17 @@
 
 # Enable disruption actions
 SecRuleEngine On
+SecRequestBodyAccess On
 
+# Enable the default block action to return a 403
+SecDefaultAction "phase:2,log,auditlog,deny,status:403"
 
 # Include the configuration for each operation
-{{#operations}}
-{{> config}}
-{{/operations}}
+{{#apiInfo}}
+{{#apis}}
+Include {{classFilename}}.conf
+{{/apis}}
+{{/apiInfo}}
 
 # For anything else, deny by default
 SecMarker FAILED_API_CHECKS
