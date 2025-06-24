@@ -1,5 +1,7 @@
 package com.oashield.openapi.integration;
 
+import com.oashield.openapi.integration.config.TestConfigurationService;
+
 import io.cucumber.testng.AbstractTestNGCucumberTests;
 import io.cucumber.testng.CucumberOptions;
 import org.testng.annotations.BeforeClass;
@@ -22,20 +24,20 @@ import org.testng.annotations.Test;
     }
 )
 public class CucumberTestNGRunnerIT extends AbstractTestNGCucumberTests {
-    
+
     @BeforeClass
     public void setup() {
         System.out.println("============================================");
         System.out.println("Starting Cucumber tests");
         System.out.println("============================================");
-        
-        // Log if we're skipping HTTP calls
-        String skipHttpCalls = System.getProperty("skip.http.calls", "false");
-        System.out.println("skip.http.calls property: " + skipHttpCalls);
+
+        // Log skip.http.calls setting
+        boolean skipCalls = TestConfigurationService.getInstance().isHttpCallsSkipped();
+        System.out.println("skip.http.calls property: " + skipCalls);
     }
-    
+
     @Override
-    @DataProvider(parallel = false)  // set to false to avoid parallel execution issues
+    @DataProvider(parallel = false)
     public Object[][] scenarios() {
         return super.scenarios();
     }
