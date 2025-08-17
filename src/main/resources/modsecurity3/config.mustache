@@ -12,59 +12,59 @@ SecRule REQUEST_METHOD "!@within {{httpMethod}}" "id:{{vendorExtensions.x-codege
 {{#allParams}}
 {{#pattern}}
 {{#isPathParam}}
-SecRule ARGS_PATH:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_1}},phase:2,block,msg:'Forbidden parameter value detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
+SecRule ARGS_PATH:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_4}},phase:2,block,msg:'Forbidden parameter value detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
 {{^isArray}}
-SecRule &ARGS_PATH:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_2}},phase:2,block,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS_PATH:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_5}},phase:2,block,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
 {{/isArray}}
 {{/isPathParam}}
 
 {{#isQueryParam}}
-SecRule ARGS_GET:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_3}},phase:2,block,msg:'Forbidden parameter value detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
+SecRule ARGS_GET:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_6}},phase:2,block,msg:'Forbidden parameter value detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
 {{^isArray}}
-SecRule &ARGS_GET:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_4}},phase:2,block,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS_GET:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_7}},phase:2,block,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
 {{/isArray}}
 {{#vendorExtensions.x-codegen-hasArrayMin}}
-SecRule &ARGS_GET:{{paramName}} "@lt {{minItems}}" "id:{{vendorExtensions.x-codegen-globalIndex_5}},phase:2,block,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS_GET:{{paramName}} "@lt {{minItems}}" "id:{{vendorExtensions.x-codegen-globalIndex_8}},phase:2,block,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
 {{/vendorExtensions.x-codegen-hasArrayMin}}
 {{#vendorExtensions.x-codegen-hasArrayMax}}
-SecRule &ARGS_GET:{{paramName}} "@gt {{maxItems}}" "id:{{vendorExtensions.x-codegen-globalIndex_6}},phase:2,block,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS_GET:{{paramName}} "@gt {{maxItems}}" "id:{{vendorExtensions.x-codegen-globalIndex_9}},phase:2,block,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
 {{/vendorExtensions.x-codegen-hasArrayMax}}
 {{/isQueryParam}}
 {{#isBodyParam}}
-SecRule ARGS_POST:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_7}},phase:2,block,msg:'Forbidden parameter value detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
+SecRule ARGS_POST:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_10}},phase:2,block,msg:'Forbidden parameter value detected',log,auditlog,skipAfter:FAILED_API_CHECKS"
 {{^isArray}}
-SecRule &ARGS_POST:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_8}},phase:2,block,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS_POST:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_11}},phase:2,block,msg:'Multiple values for non-array parameter',log,auditlog,skipAfter:FAILED_API_CHECKS"
 {{/isArray}}
 {{/isBodyParam}}
 {{/pattern}}
 {{/allParams}}
 
 # Check for unknown parameters
-{{#hasPostParams}}SecRule ARGS_POST_NAMES "!@rx ^({{#postParams}}{{paramName}}{{^-last}}|{{/-last}}{{/postParams}})$" "id:{{vendorExtensions.x-codegen-globalIndex_4}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasPostParams}}
-{{^hasPostParams}}SecRule ARGS_POST_NAMES "@rx ^.+$" "id:{{vendorExtensions.x-codegen-globalIndex_5}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasPostParams}}
-{{#hasQueryParams}}SecRule ARGS_GET_NAMES "!@rx ^({{#queryParams}}{{paramName}}{{^-last}}|{{/-last}}{{/queryParams}}{{#vendorExtensions.x-codegen-authParam}}|{{vendorExtensions.x-codegen-authParam}}{{/vendorExtensions.x-codegen-authParam}})$" "id:{{vendorExtensions.x-codegen-globalIndex_6}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasQueryParams}}
-{{^hasQueryParams}}SecRule ARGS_GET_NAMES "{{#vendorExtensions.x-codegen-authParam}}!@rx ^({{vendorExtensions.x-codegen-authParam}})*${{/vendorExtensions.x-codegen-authParam}}{{^vendorExtensions.x-codegen-authParam}}@rx .+${{/vendorExtensions.x-codegen-authParam}}" "id:{{vendorExtensions.x-codegen-globalIndex_7}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasQueryParams}}
+{{#hasPostParams}}SecRule ARGS_POST_NAMES "!@rx ^({{#postParams}}{{paramName}}{{^-last}}|{{/-last}}{{/postParams}})$" "id:{{vendorExtensions.x-codegen-globalIndex_12}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasPostParams}}
+{{^hasPostParams}}SecRule ARGS_POST_NAMES "@rx ^.+$" "id:{{vendorExtensions.x-codegen-globalIndex_13}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasPostParams}}
+{{#hasQueryParams}}SecRule ARGS_GET_NAMES "!@rx ^({{#queryParams}}{{paramName}}{{^-last}}|{{/-last}}{{/queryParams}}{{#vendorExtensions.x-codegen-authParam}}|{{vendorExtensions.x-codegen-authParam}}{{/vendorExtensions.x-codegen-authParam}})$" "id:{{vendorExtensions.x-codegen-globalIndex_14}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasQueryParams}}
+{{^hasQueryParams}}SecRule ARGS_GET_NAMES "{{#vendorExtensions.x-codegen-authParam}}!@rx ^({{vendorExtensions.x-codegen-authParam}})*${{/vendorExtensions.x-codegen-authParam}}{{^vendorExtensions.x-codegen-authParam}}@rx .+${{/vendorExtensions.x-codegen-authParam}}" "id:{{vendorExtensions.x-codegen-globalIndex_15}},phase:2,block,msg:'Unknown parameter detected',log,auditlog,skipAfter:FAILED_API_CHECKS"{{/hasQueryParams}}
 
 # Handle Models
 {{#consumes}}
 {{#isJson}}
-SecRule REQUEST_HEADERS:Content-Type "!@eq {{mediaType}}" "id:{{vendorExtensions.x-codegen-globalIndex_8}},phase:2,pass,skipAfter:ENDJSON_{{operationId}}"
+SecRule REQUEST_HEADERS:Content-Type "!@eq {{mediaType}}" "id:{{vendorExtensions.x-codegen-globalIndex_16}},phase:2,pass,skipAfter:ENDJSON_{{operationId}}"
 SecAction "phase:2,ctl:requestBodyProcessor=JSON"
-SecRule REQBODY_ERROR "!eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_9}},phase:2,pass,skipAfter:ENDJSON_{{operationId}}"
+SecRule REQBODY_ERROR "!eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_17}},phase:2,pass,skipAfter:ENDJSON_{{operationId}}"
 
 # Debug: Print validateBodySchema value: {{vendorExtensions.validateBodySchema}}
 {{#vendorExtensions.validateBodySchema}}
 # Validate JSON schema if enabled
-SecRule REQUEST_BODY "@validateSchema {{jsonSchemaOutputFile}}" "id:{{vendorExtensions.x-codegen-globalIndex_10}},phase:2,block,log,msg:'JSON schema validation failed for {{operationId}}'"
+SecRule REQUEST_BODY "@validateSchema {{jsonSchemaOutputFile}}" "id:{{vendorExtensions.x-codegen-globalIndex_18}},phase:2,block,log,msg:'JSON schema validation failed for {{operationId}}'"
 {{/vendorExtensions.validateBodySchema}}
 SecAction "phase:2,skipAfter:AFTER_CONSUMES_{{operationId}}"
 
 SecMarker ENDJSON_{{operationId}}
 {{/isJson}}
 {{#isXml}}
-SecRule REQUEST_HEADERS:Content-Type "!@eq {{mediaType}}" "id:{{vendorExtensions.x-codegen-globalIndex_11}},phase:2,pass,skipAfter:ENDXML_{{operationId}}"
+SecRule REQUEST_HEADERS:Content-Type "!@eq {{mediaType}}" "id:{{vendorExtensions.x-codegen-globalIndex_19}},phase:2,pass,skipAfter:ENDXML_{{operationId}}"
 SecAction "phase:2,ctl:requestBodyProcessor=XML"
-SecRule REQBODY_ERROR "!eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_8}},phase:2,pass,skipAfter:ENDXML_{{operationId}}"
+SecRule REQBODY_ERROR "!eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_20}},phase:2,pass,skipAfter:ENDXML_{{operationId}}"
 
 # @validateSchema isn't implemented in Coraza
 # Instead, we'll need to check each field individually
@@ -80,13 +80,13 @@ SecAction "phase:2,skipAfter:AFTER_CONSUMES_{{operationId}}"
 {{/consumes}}
 
 # Action has consumes, but it wasn't matched - validation must have failed for both JSON and XML
-SecAction "id:{{vendorExtensions.x-codegen-globalIndex_8}},log,auditlog,block,phase:2,msg:'Body processing failed - invalid data content?'"
+SecAction "id:{{vendorExtensions.x-codegen-globalIndex_21}},log,auditlog,block,phase:2,msg:'Body processing failed - invalid data content?'"
 
 
 SecMarker AFTER_CONSUMES_{{operationId}}
 
 ## The request passed all checks
-SecAction "phase:2,allow:request,id:{{vendorExtensions.x-codegen-globalIndex_9}}"
+SecAction "phase:2,allow:request,id:{{vendorExtensions.x-codegen-globalIndex_22}}"
 
 ## End of checks for this operation
 SecMarker END_{{operationId}}
