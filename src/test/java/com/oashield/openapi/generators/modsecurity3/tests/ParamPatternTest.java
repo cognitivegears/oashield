@@ -112,8 +112,8 @@ public class ParamPatternTest {
         CodegenParameter param = new CodegenParameter();
         param.isDecimal = true;
         param.required = true;
-        // Assuming default max length for decimal is not set, min length becomes 1 for required
-        assertEquals("^[0-9]{1,}$", generator.getParamPattern(param));
+        // SECURITY FIX: Now uses bounded quantifiers to prevent ReDoS
+        assertEquals("^-?([0-9]{1,15}(\\.[0-9]{1,15})?|\\.[0-9]{1,15})$", generator.getParamPattern(param));
     }
 
     @Test
@@ -122,7 +122,8 @@ public class ParamPatternTest {
         CodegenParameter param = new CodegenParameter();
         param.isDecimal = true;
         param.required = false;
-        assertEquals("^[0-9]*.?[0-9]*$", generator.getParamPattern(param));
+        // SECURITY FIX: Now uses bounded quantifiers to prevent ReDoS
+        assertEquals("^-?([0-9]{0,15}(\\.[0-9]{1,15})?|\\.[0-9]{1,15})?$", generator.getParamPattern(param));
     }
 
     @Test
@@ -131,7 +132,16 @@ public class ParamPatternTest {
         CodegenParameter param = new CodegenParameter();
         param.isUuid = true;
         param.required = true;
-        assertEquals("^[0-9a-fA-F]+$", generator.getParamPattern(param));
+        assertEquals("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", generator.getParamPattern(param));
+    }
+
+    @Test
+    public void testGetParamPattern_uuidOptional() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.isUuid = true;
+        param.required = false;
+        assertEquals("^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?$", generator.getParamPattern(param));
     }
 
     @Test
@@ -175,5 +185,128 @@ public class ParamPatternTest {
         CodegenParameter param = new CodegenParameter();
         param.required = false;
         assertEquals("^.*$", generator.getParamPattern(param));
+    }
+
+    // ===== NEW OpenAPI 3.1 Format Type Tests =====
+
+    @Test
+    public void testGetParamPattern_timeFormatRequired() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        // Use vendorExtensions to store format since setFormat() doesn't work
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "time");
+        param.required = true;
+        assertEquals("^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,9})?(Z|[+-][01][0-9]:[0-5][0-9])?$", generator.getParamPattern(param));
+    }
+
+    @Test
+    public void testGetParamPattern_timeFormatOptional() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "time");
+        param.required = false;
+        assertEquals("^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,9})?(Z|[+-][01][0-9]:[0-5][0-9])?$", generator.getParamPattern(param));
+    }
+
+    @Test
+    public void testGetParamPattern_uriFormatRequired() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "uri");
+        param.required = true;
+        assertEquals("^[a-zA-Z][a-zA-Z0-9+.-]{0,31}://[^\\s]{1,2000}$", generator.getParamPattern(param));
+    }
+
+    @Test
+    public void testGetParamPattern_uriReferenceFormatRequired() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "uri-reference");
+        param.required = true;
+        assertEquals("^([a-zA-Z][a-zA-Z0-9+.-]{0,31}://)?[^\\s]{1,2000}$", generator.getParamPattern(param));
+    }
+
+    @Test
+    public void testGetParamPattern_uriTemplateFormatRequired() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "uri-template");
+        param.required = true;
+        assertEquals("^[^\\s{]{0,1000}(\\{[^}]{1,100}\\}[^\\s{]{0,1000}){0,50}$", generator.getParamPattern(param));
+    }
+
+    @Test
+    public void testGetParamPattern_hostnameFormatRequired() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "hostname");
+        param.required = true;
+        assertEquals("^([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.){0,126}[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?$", generator.getParamPattern(param));
+    }
+
+    @Test
+    public void testGetParamPattern_ipv4FormatRequired() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "ipv4");
+        param.required = true;
+        assertEquals("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$", generator.getParamPattern(param));
+    }
+
+    @Test
+    public void testGetParamPattern_ipv6FormatRequired() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "ipv6");
+        param.required = true;
+        assertEquals("^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$", generator.getParamPattern(param));
+    }
+
+    @Test
+    public void testGetParamPattern_jsonPointerFormatRequired() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "json-pointer");
+        param.required = true;
+        assertEquals("^(/(([^/~]|~[01]){0,100})){0,50}$", generator.getParamPattern(param));
+    }
+
+    @Test
+    public void testGetParamPattern_relativeJsonPointerFormatRequired() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "relative-json-pointer");
+        param.required = true;
+        assertEquals("^[0-9]{1,10}(#|(/(([^/~]|~[01]){0,100})){0,50})$", generator.getParamPattern(param));
+    }
+
+    @Test
+    public void testGetParamPattern_byteFormatRequired() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "byte");
+        param.required = true;
+        assertEquals("^[A-Za-z0-9+/]{0,1000}={0,2}$", generator.getParamPattern(param));
+    }
+
+    @Test
+    public void testGetParamPattern_binaryFormatRequired() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "binary");
+        param.required = true;
+        assertEquals("^[0-9a-fA-F]{0,10000}$", generator.getParamPattern(param));
     }
 }

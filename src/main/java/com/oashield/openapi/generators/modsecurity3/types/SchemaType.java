@@ -119,6 +119,51 @@ public enum SchemaType {
         }
     },
 
+    STRING_TIME {
+        @Override
+        public void applyToNode(ObjectNode node) {
+            node.put("type", "string");
+            node.put("format", "time");
+            node.remove("$ref");
+        }
+    },
+
+    STRING_URI_REFERENCE {
+        @Override
+        public void applyToNode(ObjectNode node) {
+            node.put("type", "string");
+            node.put("format", "uri-reference");
+            node.remove("$ref");
+        }
+    },
+
+    STRING_URI_TEMPLATE {
+        @Override
+        public void applyToNode(ObjectNode node) {
+            node.put("type", "string");
+            node.put("format", "uri-template");
+            node.remove("$ref");
+        }
+    },
+
+    STRING_JSON_POINTER {
+        @Override
+        public void applyToNode(ObjectNode node) {
+            node.put("type", "string");
+            node.put("format", "json-pointer");
+            node.remove("$ref");
+        }
+    },
+
+    STRING_RELATIVE_JSON_POINTER {
+        @Override
+        public void applyToNode(ObjectNode node) {
+            node.put("type", "string");
+            node.put("format", "relative-json-pointer");
+            node.remove("$ref");
+        }
+    },
+
     OBJECT {
         @Override
         public void applyToNode(ObjectNode node) {

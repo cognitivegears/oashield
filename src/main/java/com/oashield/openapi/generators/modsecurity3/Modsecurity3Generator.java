@@ -32,8 +32,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class Modsecurity3Generator extends DefaultCodegen implements CodegenConfig {
-    // expose outputFolder for tests
-    public String outputFolder;
+
+    // Pattern generation service for secure pattern handling
+    private final PatternGenerationService patternGenerationService = new PatternGenerationService();
+
+    @Override
+    public void setOutputDir(String dir) {
+        super.setOutputDir(dir);
+        this.outputFolder = dir;
+    }
 
     // JSON Schema generation configuration
     private boolean generateJsonSchema = true;
@@ -105,106 +112,36 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
 
   /*
    * Generates a regex string to validate the input of a parameter.
+   * SECURITY FIX: Delegates to PatternGenerationService for secure pattern generation
    */
   public String getParamPattern(CodegenParameter param) {
-    // fetch and normalize allowed input pattern (strip any existing anchors)
-    String allowedInputPattern = getAllowedInputPattern(param);
-    // remove leading ^ and trailing $ to avoid double anchors
-    if (allowedInputPattern.startsWith("^") && allowedInputPattern.endsWith("$")) {
-        allowedInputPattern = allowedInputPattern.substring(1, allowedInputPattern.length() - 1);
-    } else if (allowedInputPattern.endsWith("$")) {
-        allowedInputPattern = allowedInputPattern.substring(0, allowedInputPattern.length() - 1);
-    }
-    // decide if we should anchor the pattern
-    boolean handleDecimal = isDecimal(param);
-    boolean isRequired = param.required;
-    boolean allowMultiple = allowMultiple(param);
-    // Anchor all patterns with ^ unless they already have it
-    String patternString = "^";
-    String minLengthPatternString = getMinLengthPatternString(param, isRequired);
-    String maxLengthPatternString = getMaxLengthPatternString(param, isRequired);
-
-    // Override max length for integers in pattern generation context (use 19 instead of 10)
-    if (param.isInteger && (maxLengthPatternString.equals("10") || maxLengthPatternString.isEmpty())) {
-        maxLengthPatternString = "19";
-    }
-
-    if (handleDecimal) {
-        patternString += getDecimalPattern(allowedInputPattern, minLengthPatternString, maxLengthPatternString, isRequired);
-    } else {
-        String innerPattern = getNonDecimalPattern(allowedInputPattern, minLengthPatternString, maxLengthPatternString, allowMultiple, isRequired);
-
-        // Special case: for integer parameters that are optional and allowMultiple=true,
-        // wrap the quantified pattern in parentheses with ?
-        if (!isRequired && allowMultiple && (param.isInteger || param.isLong || param.isNumber) && innerPattern.contains("{")) {
-            innerPattern = "(" + innerPattern + ")?";
-        }
-
-        // Special case: for date/dateTime/email patterns, always wrap in parentheses due to complex alternation
-        if ((param.isDate || param.isDateTime || param.isEmail) && !innerPattern.startsWith("(")) {
-            innerPattern = "(" + innerPattern + ")";
-        }
-
-        patternString += innerPattern;
-    }
-    // always append ending anchor
-    patternString += "$";
-    return patternString;
+    return patternGenerationService.getParamPattern(param);
   }
 
   /*
    * Based on the type of parameter, returns the allowed input pattern.
+   * SECURITY FIX: Delegates to PatternGenerationService for secure pattern generation
    */
   public String getAllowedInputPattern(CodegenParameter param) {
-    if (param.isInteger || param.isLong || param.isNumber || param.isFloat || param.isDouble || param.isDecimal) {
-      return "[0-9]";
-    } else if (param.getIsBoolean()) {
-      return "(true|false)";
-    } else if (param.isUuid) {
-      return "[0-9a-fA-F]";
-    } else if (param.isDate) {
-      return "\\d{4}-((01|03|05|07|08|10|12)-(0[1-9]|1\\d|2\\d|3[0-1])|(04|06|09|11)-(0[1-9]|1\\d|2\\d|30)|02-(0[1-9]|1\\d|2\\d))";
-    } else if (param.isDateTime) {
-      return "\\d{4}-((01|03|05|07|08|10|12)-(0[1-9]|1\\d|2\\d|3[0-1])|(04|06|09|11)-(0[1-9]|1\\d|2\\d|30)|02-(0[1-9]|1\\d|2\\d))T([01]\\d|2[0-3]):([0-5]\\d):([0-5]\\d)(\\.\\d+)?([Zz]|[+\\-](0\\d|1[0-4])(:[0-5]\\d)?)";
-    } else if (param.isEmail) {
-      return "[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}";
-    } else if (param.isEnum) {
-      List<String> enumValues = null;
-      try {
-        enumValues = (List<String>)param.allowableValues.get("values");
-      }
-      catch (ClassCastException e) {
-        LOGGER.warn("Could not cast allowable values to list of strings for parameter: {}", param.baseName);
-      }
-      if (enumValues == null || enumValues.isEmpty()) {
-        LOGGER.warn("No enum values found for parameter: {}", param.baseName);
-        return ".";
-      }
-      return "(" + String.join("|", enumValues) + ")";
-    } else {
-      return ".";
-    }
+    return patternGenerationService.getAllowedInputPattern(param);
   }
 
   /*
    * Returns true if the parameter is a decimal type.
+   * Delegates to PatternGenerationService for consistency
    */
   public boolean isDecimal(CodegenParameter param) {
-    return param.isFloat || param.isDouble || param.isDecimal;
+    return patternGenerationService.isDecimal(param);
   }
 
   /*
    * Returns true if the parameter allows multiple character or digits, or
    * if it uses a single complex pattern (such as true/false for booleans,
    * or decimals since they have a set pattern).
+   * Delegates to PatternGenerationService for consistency
    */
   public boolean allowMultiple(CodegenParameter param) {
-    return !(param.getIsBoolean() ||
-     isDecimal(param) ||
-     param.isDate ||
-     param.isDateTime ||
-     param.isEnum ||
-     param.isEmail);
+    return patternGenerationService.allowMultiple(param);
   }
 
   /*
@@ -607,10 +544,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     super();
     LOGGER.debug("Initializing Modsecurity3Generator");
 
-    // set a default output folder for tests
-    super.outputFolder = "output/modsecurity3";
-    this.outputFolder = super.outputFolder;
-
+    // super.outputFolder = "output/modsecurity3";
     /**
      * Api classes. You can write classes for each Api file with the
      * apiTemplateFiles map.

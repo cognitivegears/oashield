@@ -281,8 +281,8 @@ public class ModelProcessingTest {
     @Test
     public void testPostProcessModels(@TempDir Path tempDir) throws IOException {
         Modsecurity3Generator generator = new Modsecurity3Generator();
-        generator.outputFolder = tempDir.toString();
-        
+        generator.setOutputDir(tempDir.toString());
+
         ModelsMap modelsMap = new ModelsMap();
         List<ModelMap> modelList = new ArrayList<>();
 
@@ -323,9 +323,9 @@ public class ModelProcessingTest {
     @Test
     public void testPostProcessAllModels(@TempDir Path tempDir) throws IOException {
         Modsecurity3Generator generator = new Modsecurity3Generator();
-        generator.outputFolder = tempDir.toString();
+        generator.setOutputDir(tempDir.toString());
         generator.jsonSchemaOutputFile = "schema.json";
-        
+
         Map<String, ModelsMap> allModels = new HashMap<>();
         ModelsMap modelsMap = new ModelsMap();
         List<ModelMap> modelList = new ArrayList<>();
@@ -352,7 +352,7 @@ public class ModelProcessingTest {
         allModels.put("Pet", modelsMap);
 
         // Create the output directory if it doesn't exist
-        File outputDir = new File(generator.outputFolder);
+        File outputDir = new File(generator.getOutputDir());
         if (!outputDir.exists()) {
             outputDir.mkdirs();
         }
@@ -365,7 +365,7 @@ public class ModelProcessingTest {
         Map<String, ModelsMap> processedAllModels = spyGenerator.postProcessAllModels(allModels);
 
         // Create a sample schema file to satisfy the test
-        File schemaFile = new File(generator.outputFolder + File.separator + generator.jsonSchemaOutputFile);
+        File schemaFile = new File(generator.getOutputDir() + File.separator + generator.jsonSchemaOutputFile);
         if (!schemaFile.exists()) {
             try {
                 ObjectMapper objectMapper = new ObjectMapper();
@@ -380,7 +380,7 @@ public class ModelProcessingTest {
                 e.printStackTrace();
             }
         }
-        
+
         assertTrue(schemaFile.exists(), "JSON Schema file should be generated");
 
         // Verify that the super method was called

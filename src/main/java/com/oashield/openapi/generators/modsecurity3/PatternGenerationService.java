@@ -28,9 +28,43 @@ public class PatternGenerationService {
         if (param.isInteger || param.isLong) {
             return isRequired ? "^[0-9]{1,19}$" : "^([0-9]{1,19})?$";
         }
-        // UUID
+        // UUID - SECURITY FIX: RFC 4122 compliant pattern with bounded quantifiers
         else if (param.isUuid) {
-            return isRequired ? "^[0-9a-fA-F]+$" : "^([0-9a-fA-F]+)?$";
+            return isRequired ? "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" : "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?$";
+        }
+        // NEW OpenAPI 3.1 Format Types - Direct pattern handling
+        else if (isTimeFormat(param)) {
+            return isRequired ? "^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,9})?(Z|[+-][01][0-9]:[0-5][0-9])?$" : "^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,9})?(Z|[+-][01][0-9]:[0-5][0-9])?$";
+        }
+        else if (isUriFormat(param)) {
+            return isRequired ? "^[a-zA-Z][a-zA-Z0-9+.-]{0,31}://[^\\s]{1,2000}$" : "^[a-zA-Z][a-zA-Z0-9+.-]{0,31}://[^\\s]{1,2000}$";
+        }
+        else if (isUriReferenceFormat(param)) {
+            return isRequired ? "^([a-zA-Z][a-zA-Z0-9+.-]{0,31}://)?[^\\s]{1,2000}$" : "^([a-zA-Z][a-zA-Z0-9+.-]{0,31}://)?[^\\s]{1,2000}$";
+        }
+        else if (isUriTemplateFormat(param)) {
+            return isRequired ? "^[^\\s{]{0,1000}(\\{[^}]{1,100}\\}[^\\s{]{0,1000}){0,50}$" : "^[^\\s{]{0,1000}(\\{[^}]{1,100}\\}[^\\s{]{0,1000}){0,50}$";
+        }
+        else if (isHostnameFormat(param)) {
+            return isRequired ? "^([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.){0,126}[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?$" : "^([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.){0,126}[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?$";
+        }
+        else if (isIpv4Format(param)) {
+            return isRequired ? "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" : "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
+        }
+        else if (isIpv6Format(param)) {
+            return isRequired ? "^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$" : "^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$";
+        }
+        else if (isJsonPointerFormat(param)) {
+            return isRequired ? "^(/(([^/~]|~[01]){0,100})){0,50}$" : "^(/(([^/~]|~[01]){0,100})){0,50}$";
+        }
+        else if (isRelativeJsonPointerFormat(param)) {
+            return isRequired ? "^[0-9]{1,10}(#|(/(([^/~]|~[01]){0,100})){0,50})$" : "^[0-9]{1,10}(#|(/(([^/~]|~[01]){0,100})){0,50})$";
+        }
+        else if (isByteFormat(param)) {
+            return isRequired ? "^[A-Za-z0-9+/]{0,1000}={0,2}$" : "^[A-Za-z0-9+/]{0,1000}={0,2}$";
+        }
+        else if (isBinaryFormat(param)) {
+            return isRequired ? "^[0-9a-fA-F]{0,10000}$" : "^[0-9a-fA-F]{0,10000}$";
         }
 
         String allowedInputPattern = getAllowedInputPattern(param);
@@ -47,7 +81,7 @@ public class PatternGenerationService {
         else if (param.getIsBoolean()) {
             patternString = "^" + getNonDecimalPattern(allowedInputPattern, minLengthPatternString, maxLengthPatternString, false, isRequired) + "$";
         }
-        // Enum, Email, Date, DateTime (already anchored in allowedInputPattern)
+        // Enum, Email, Date, DateTime
         else if (param.isEnum || param.isEmail || param.isDate || param.isDateTime) {
             patternString = "^" + getNonDecimalPattern(allowedInputPattern, minLengthPatternString, maxLengthPatternString, false, isRequired) + "$";
         }
@@ -95,8 +129,8 @@ public class PatternGenerationService {
         } else if (param.getIsBoolean()) {
             return "(true|false)";
         } else if (param.isUuid) {
-            // UUID: match hex digits (test expects this, not full UUID)
-            return "[0-9a-fA-F]";
+            // UUID: RFC 4122 compliant format - SECURITY FIX: bounded quantifiers
+            return "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
         } else if (param.isDate) {
             // Date: use complex regex from test, anchored
             return "(\\d{4}-((01|03|05|07|08|10|12)-(0[1-9]|1\\d|2\\d|3[0-1])|(04|06|09|11)-(0[1-9]|1\\d|2\\d|30)|02-(0[1-9]|1\\d|2\\d)))";
@@ -106,6 +140,41 @@ public class PatternGenerationService {
         } else if (param.isEmail) {
             // Email: use anchored pattern from test
             return "([A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,})";
+        }
+        // NEW OpenAPI 3.1 Data Types - SECURITY: All patterns use bounded quantifiers
+        else if (isTimeFormat(param)) {
+            // Time format: HH:MM:SS with optional fractional seconds and timezone
+            return "([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,9})?(Z|[+-][01][0-9]:[0-5][0-9])?";
+        } else if (isUriFormat(param)) {
+            // URI format: bounded pattern for URI validation
+            return "[a-zA-Z][a-zA-Z0-9+.-]{0,31}://[^\\s]{1,2000}";
+        } else if (isUriReferenceFormat(param)) {
+            // URI-reference: can be relative or absolute URI
+            return "([a-zA-Z][a-zA-Z0-9+.-]{0,31}://)?[^\\s]{1,2000}";
+        } else if (isUriTemplateFormat(param)) {
+            // URI template with RFC 6570 variables
+            return "[^\\s{]{0,1000}(\\{[^}]{1,100}\\}[^\\s{]{0,1000}){0,50}";
+        } else if (isHostnameFormat(param)) {
+            // Hostname: RFC 1123 compliant with bounded quantifiers
+            return "([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.){0,126}[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?";
+        } else if (isIpv4Format(param)) {
+            // IPv4: precise pattern with octet validation
+            return "((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)";
+        } else if (isIpv6Format(param)) {
+            // IPv6: simplified pattern with bounded quantifiers
+            return "([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}";
+        } else if (isJsonPointerFormat(param)) {
+            // JSON Pointer: RFC 6901 compliant
+            return "(/(([^/~]|~[01]){0,100})){0,50}";
+        } else if (isRelativeJsonPointerFormat(param)) {
+            // Relative JSON Pointer: non-negative integer + JSON Pointer
+            return "[0-9]{1,10}(#|(/(([^/~]|~[01]){0,100})){0,50})";
+        } else if (isByteFormat(param)) {
+            // Byte: base64 encoded with padding
+            return "[A-Za-z0-9+/]{0,1000}={0,2}";
+        } else if (isBinaryFormat(param)) {
+            // Binary: hex encoded with bounded length
+            return "[0-9a-fA-F]{0,10000}";
         } else if (param.isEnum) {
             List<String> enumValues = null;
             try {
@@ -158,7 +227,18 @@ public class PatternGenerationService {
                 param.isDate ||
                 param.isDateTime ||
                 param.isEnum ||
-                param.isEmail);
+                param.isEmail ||
+                isTimeFormat(param) ||
+                isUriFormat(param) ||
+                isUriReferenceFormat(param) ||
+                isUriTemplateFormat(param) ||
+                isHostnameFormat(param) ||
+                isIpv4Format(param) ||
+                isIpv6Format(param) ||
+                isJsonPointerFormat(param) ||
+                isRelativeJsonPointerFormat(param) ||
+                isByteFormat(param) ||
+                isBinaryFormat(param));
     }
 
     /**
@@ -222,14 +302,18 @@ public class PatternGenerationService {
      */
     public String getDecimalPattern(String allowedInputPattern, String minLengthPatternString, String maxLengthPatternString, boolean isRequired) {
         // Always return unanchored pattern; anchoring is handled in getParamPattern
+        // SECURITY FIX: Use bounded quantifiers to prevent ReDoS attacks
         if (isRequired) {
             if (!maxLengthPatternString.isEmpty()) {
-                return "[0-9]{" + minLengthPatternString + "," + maxLengthPatternString + "}";
+                return "-?([0-9]{" + minLengthPatternString + "," + maxLengthPatternString + "}(\\.[0-9]{1,15})?|\\.[0-9]{1,15})";
             } else {
-                return "[0-9]{" + minLengthPatternString + ",}";
+                // Apply reasonable upper bound of 15 digits to prevent ReDoS
+                String maxBound = "15";
+                return "-?([0-9]{" + minLengthPatternString + "," + maxBound + "}(\\.[0-9]{1,15})?|\\.[0-9]{1,15})";
             }
         } else {
-            return "[0-9]*.?[0-9]*";
+            // Optional decimal pattern with bounded quantifiers
+            return "-?([0-9]{0,15}(\\.[0-9]{1,15})?|\\.[0-9]{1,15})?";
         }
     }
 
@@ -273,5 +357,117 @@ public class PatternGenerationService {
                 return allowedInputPattern + "?";
             }
         }
+    }
+
+    // Helper methods for OpenAPI 3.1 data type format detection
+
+    /**
+     * Check if parameter has time format.
+     * @param param The parameter to check
+     * @return true if parameter format is time
+     */
+    private boolean isTimeFormat(CodegenParameter param) {
+        return (param.getFormat() != null && param.getFormat().equals("time")) ||
+               (param.vendorExtensions != null && "time".equals(param.vendorExtensions.get("x-format")));
+    }
+
+    /**
+     * Check if parameter has URI format.
+     * @param param The parameter to check
+     * @return true if parameter format is uri
+     */
+    private boolean isUriFormat(CodegenParameter param) {
+        return (param.getFormat() != null && param.getFormat().equals("uri")) ||
+               (param.vendorExtensions != null && "uri".equals(param.vendorExtensions.get("x-format")));
+    }
+
+    /**
+     * Check if parameter has URI reference format.
+     * @param param The parameter to check
+     * @return true if parameter format is uri-reference
+     */
+    private boolean isUriReferenceFormat(CodegenParameter param) {
+        return (param.getFormat() != null && param.getFormat().equals("uri-reference")) ||
+               (param.vendorExtensions != null && "uri-reference".equals(param.vendorExtensions.get("x-format")));
+    }
+
+    /**
+     * Check if parameter has URI template format.
+     * @param param The parameter to check
+     * @return true if parameter format is uri-template
+     */
+    private boolean isUriTemplateFormat(CodegenParameter param) {
+        return (param.getFormat() != null && param.getFormat().equals("uri-template")) ||
+               (param.vendorExtensions != null && "uri-template".equals(param.vendorExtensions.get("x-format")));
+    }
+
+    /**
+     * Check if parameter has hostname format.
+     * @param param The parameter to check
+     * @return true if parameter format is hostname
+     */
+    private boolean isHostnameFormat(CodegenParameter param) {
+        return (param.getFormat() != null && param.getFormat().equals("hostname")) ||
+               (param.vendorExtensions != null && "hostname".equals(param.vendorExtensions.get("x-format")));
+    }
+
+    /**
+     * Check if parameter has IPv4 format.
+     * @param param The parameter to check
+     * @return true if parameter format is ipv4
+     */
+    private boolean isIpv4Format(CodegenParameter param) {
+        return (param.getFormat() != null && param.getFormat().equals("ipv4")) ||
+               (param.vendorExtensions != null && "ipv4".equals(param.vendorExtensions.get("x-format")));
+    }
+
+    /**
+     * Check if parameter has IPv6 format.
+     * @param param The parameter to check
+     * @return true if parameter format is ipv6
+     */
+    private boolean isIpv6Format(CodegenParameter param) {
+        return (param.getFormat() != null && param.getFormat().equals("ipv6")) ||
+               (param.vendorExtensions != null && "ipv6".equals(param.vendorExtensions.get("x-format")));
+    }
+
+    /**
+     * Check if parameter has JSON pointer format.
+     * @param param The parameter to check
+     * @return true if parameter format is json-pointer
+     */
+    private boolean isJsonPointerFormat(CodegenParameter param) {
+        return (param.getFormat() != null && param.getFormat().equals("json-pointer")) ||
+               (param.vendorExtensions != null && "json-pointer".equals(param.vendorExtensions.get("x-format")));
+    }
+
+    /**
+     * Check if parameter has relative JSON pointer format.
+     * @param param The parameter to check
+     * @return true if parameter format is relative-json-pointer
+     */
+    private boolean isRelativeJsonPointerFormat(CodegenParameter param) {
+        return (param.getFormat() != null && param.getFormat().equals("relative-json-pointer")) ||
+               (param.vendorExtensions != null && "relative-json-pointer".equals(param.vendorExtensions.get("x-format")));
+    }
+
+    /**
+     * Check if parameter has byte format.
+     * @param param The parameter to check
+     * @return true if parameter format is byte
+     */
+    private boolean isByteFormat(CodegenParameter param) {
+        return (param.getFormat() != null && param.getFormat().equals("byte")) ||
+               (param.vendorExtensions != null && "byte".equals(param.vendorExtensions.get("x-format")));
+    }
+
+    /**
+     * Check if parameter has binary format.
+     * @param param The parameter to check
+     * @return true if parameter format is binary
+     */
+    private boolean isBinaryFormat(CodegenParameter param) {
+        return (param.getFormat() != null && param.getFormat().equals("binary")) ||
+               (param.vendorExtensions != null && "binary".equals(param.vendorExtensions.get("x-format")));
     }
 }

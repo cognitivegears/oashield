@@ -22,16 +22,16 @@ public class JsonSchemaTypeMapper {
         TYPE_MAPPING.put("integer", SchemaType.INTEGER);
         TYPE_MAPPING.put("int", SchemaType.INTEGER);
         TYPE_MAPPING.put("long", SchemaType.INTEGER);
-        
+
         // Number types
         TYPE_MAPPING.put("float", SchemaType.NUMBER);
         TYPE_MAPPING.put("double", SchemaType.NUMBER);
         TYPE_MAPPING.put("number", SchemaType.NUMBER);
         TYPE_MAPPING.put("decimal", SchemaType.NUMBER);
-        
+
         // Boolean type
         TYPE_MAPPING.put("boolean", SchemaType.BOOLEAN);
-        
+
         // String types
         TYPE_MAPPING.put("string", SchemaType.STRING);
         TYPE_MAPPING.put("date", SchemaType.STRING_DATE);
@@ -42,10 +42,21 @@ public class JsonSchemaTypeMapper {
         TYPE_MAPPING.put("password", SchemaType.STRING);
         TYPE_MAPPING.put("email", SchemaType.STRING_EMAIL);
         TYPE_MAPPING.put("uuid", SchemaType.STRING_UUID);
-        
+
+        // NEW OpenAPI 3.1 Data Types
+        TYPE_MAPPING.put("time", SchemaType.STRING_TIME);
+        TYPE_MAPPING.put("uri", SchemaType.STRING_URI);
+        TYPE_MAPPING.put("uri-reference", SchemaType.STRING_URI_REFERENCE);
+        TYPE_MAPPING.put("uri-template", SchemaType.STRING_URI_TEMPLATE);
+        TYPE_MAPPING.put("hostname", SchemaType.STRING_HOSTNAME);
+        TYPE_MAPPING.put("ipv4", SchemaType.STRING_IPV4);
+        TYPE_MAPPING.put("ipv6", SchemaType.STRING_IPV6);
+        TYPE_MAPPING.put("json-pointer", SchemaType.STRING_JSON_POINTER);
+        TYPE_MAPPING.put("relative-json-pointer", SchemaType.STRING_RELATIVE_JSON_POINTER);
+
         // Object type
         TYPE_MAPPING.put("object", SchemaType.OBJECT);
-        
+
         // Initialize primitive types set
         PRIMITIVE_TYPES.addAll(TYPE_MAPPING.keySet());
         // Add null type which is a primitive but handled differently

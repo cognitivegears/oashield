@@ -77,7 +77,7 @@ public class PatternGenerationTest {
         Modsecurity3Generator generator = new Modsecurity3Generator();
         CodegenParameter param = new CodegenParameter();
         param.isUuid = true;
-        assertEquals("[0-9a-fA-F]", generator.getAllowedInputPattern(param));
+        assertEquals("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", generator.getAllowedInputPattern(param));
     }
 
     @Test
@@ -209,5 +209,161 @@ public class PatternGenerationTest {
         assertTrue(generator.isInvalidPattern("(?=.*[a-z])(?=.*[A-Z]).+"));
         assertTrue(generator.isInvalidPattern("(?<=abc)def"));
         assertTrue(generator.isInvalidPattern("(?<!abc)def"));
+    }
+
+    // ===== NEW OpenAPI 3.1 Format Type Tests =====
+
+    @Test
+    public void testGetAllowedInputPattern_timeFormat() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "time");
+        assertEquals("([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,9})?(Z|[+-][01][0-9]:[0-5][0-9])?", generator.getAllowedInputPattern(param));
+    }
+
+    @Test
+    public void testGetAllowedInputPattern_uriFormat() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "uri");
+        assertEquals("[a-zA-Z][a-zA-Z0-9+.-]{0,31}://[^\\s]{1,2000}", generator.getAllowedInputPattern(param));
+    }
+
+    @Test
+    public void testGetAllowedInputPattern_uriReferenceFormat() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "uri-reference");
+        assertEquals("([a-zA-Z][a-zA-Z0-9+.-]{0,31}://)?[^\\s]{1,2000}", generator.getAllowedInputPattern(param));
+    }
+
+    @Test
+    public void testGetAllowedInputPattern_uriTemplateFormat() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "uri-template");
+        assertEquals("[^\\s{]{0,1000}(\\{[^}]{1,100}\\}[^\\s{]{0,1000}){0,50}", generator.getAllowedInputPattern(param));
+    }
+
+    @Test
+    public void testGetAllowedInputPattern_hostnameFormat() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "hostname");
+        assertEquals("([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.){0,126}[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?", generator.getAllowedInputPattern(param));
+    }
+
+    @Test
+    public void testGetAllowedInputPattern_ipv4Format() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "ipv4");
+        assertEquals("((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)", generator.getAllowedInputPattern(param));
+    }
+
+    @Test
+    public void testGetAllowedInputPattern_ipv6Format() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "ipv6");
+        assertEquals("([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}", generator.getAllowedInputPattern(param));
+    }
+
+    @Test
+    public void testGetAllowedInputPattern_jsonPointerFormat() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "json-pointer");
+        assertEquals("(/(([^/~]|~[01]){0,100})){0,50}", generator.getAllowedInputPattern(param));
+    }
+
+    @Test
+    public void testGetAllowedInputPattern_relativeJsonPointerFormat() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "relative-json-pointer");
+        assertEquals("[0-9]{1,10}(#|(/(([^/~]|~[01]){0,100})){0,50})", generator.getAllowedInputPattern(param));
+    }
+
+    @Test
+    public void testGetAllowedInputPattern_byteFormat() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "byte");
+        assertEquals("[A-Za-z0-9+/]{0,1000}={0,2}", generator.getAllowedInputPattern(param));
+    }
+
+    @Test
+    public void testGetAllowedInputPattern_binaryFormat() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.vendorExtensions = new HashMap<>();
+        param.vendorExtensions.put("x-format", "binary");
+        assertEquals("[0-9a-fA-F]{0,10000}", generator.getAllowedInputPattern(param));
+    }
+
+    // ===== ReDoS Security Tests =====
+
+    @Test
+    public void testSecurityFix_uuidPatternIsBounded() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.isUuid = true;
+        param.required = true;
+
+        String pattern = generator.getParamPattern(param);
+        // Verify the pattern uses bounded quantifiers and follows RFC 4122 format
+        assertEquals("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", pattern);
+
+        // Ensure no unbounded quantifiers like + or * without upper bounds
+        assertFalse(pattern.contains("[0-9a-fA-F]+"));
+        assertFalse(pattern.contains("[0-9a-fA-F]*"));
+    }
+
+    @Test
+    public void testSecurityFix_decimalPatternIsBounded() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        CodegenParameter param = new CodegenParameter();
+        param.isDecimal = true;
+        param.required = true;
+
+        String pattern = generator.getParamPattern(param);
+        // Verify the pattern uses bounded quantifiers with maximum limit of 15 digits
+        assertEquals("^-?([0-9]{1,15}(\\.[0-9]{1,15})?|\\.[0-9]{1,15})$", pattern);
+
+        // Ensure no unbounded quantifiers
+        assertFalse(pattern.contains("[0-9]+"));
+        assertFalse(pattern.contains("[0-9]*"));
+    }
+
+    @Test
+    public void testSecurityFix_allNewFormatsUseBoundedQuantifiers() {
+        Modsecurity3Generator generator = new Modsecurity3Generator();
+        String[] newFormats = {"time", "uri", "uri-reference", "uri-template", "hostname",
+                              "ipv4", "ipv6", "json-pointer", "relative-json-pointer",
+                              "byte", "binary"};
+
+        for (String format : newFormats) {
+            CodegenParameter param = new CodegenParameter();
+            param.vendorExtensions = new HashMap<>();
+            param.vendorExtensions.put("x-format", format);
+            String pattern = generator.getAllowedInputPattern(param);
+
+            // Verify no unbounded repetitions without upper limits
+            assertFalse(pattern.contains("*") && !pattern.contains("{"),
+                       "Format " + format + " should not contain unbounded * quantifiers");
+            assertFalse(pattern.contains("+") && !pattern.contains("{"),
+                       "Format " + format + " should not contain unbounded + quantifiers");
+        }
     }
 }
