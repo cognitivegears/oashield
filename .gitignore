@@ -70,4 +70,12 @@ ehthumbs.db
 Thumbs.db
 
 output/
+output-*/
+test-output*/
+test-patterns/
+generated-code/
 **/.claude/settings.local.json
+
+# Local scratch (not part of the project)
+ai/
+chats.db
