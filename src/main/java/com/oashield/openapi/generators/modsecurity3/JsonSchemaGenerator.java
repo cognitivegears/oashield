@@ -68,7 +68,8 @@ public class JsonSchemaGenerator {
         schema.put("$schema", JSON_SCHEMA_DRAFT7);
         schema.put("title", "OpenAPI Schema Definitions");
         schema.put("description", "JSON Schema definitions generated from OpenAPI specification");
-        schema.put("type", "object");
+        // No root "type": request bodies may be objects or arrays; a type:object
+        // root would make Coraza's @validateSchema reject root-array bodies.
         return schema;
     }
 

@@ -93,6 +93,8 @@ Feature: ModSecurity Rule Generation and Testing
     And a POST request to "/v2/pet" with an invalid body "missing_required" should be blocked with a 403 status code
     And a POST request to "/v2/pet" with an invalid body "invalid_type" should be blocked with a 403 status code
     And a POST request to "/v2/pet" with an invalid body "extra_property" should be blocked with a 403 status code
+    And a POST request to "/v2/user/createWithList" with content type "application/json" and body "[{\"username\":\"alice\"}]" should return a 200 status code
+    And a POST request to "/v2/user/createWithList" with content type "application/json" and body "[{\"username\":\"alice\",\"userStatus\":\"notanumber\"}]" should be blocked with a 403 status code
 
     Examples:
       | engine       |

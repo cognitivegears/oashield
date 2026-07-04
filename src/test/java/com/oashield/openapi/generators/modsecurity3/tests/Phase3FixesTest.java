@@ -98,7 +98,7 @@ public class Phase3FixesTest {
     void mapPropertyAllowsArbitraryKeysAndValidatesValues() {
         assertTrue(conf.contains("json\\.attrs\\..{1,256}"),
                 "map property should allowlist arbitrary sub-keys:\n" + conf);
-        assertTrue(conf.contains("ARGS:/^json\\.attrs\\.[^.]{1,64}$/ \"!@rx ^[a-z]{1,20}$\""),
+        assertTrue(conf.contains("ARGS:/(?i)^json\\.attrs\\.[^.]{1,64}$/ \"!@rx ^[a-z]{1,20}$\""),
                 "map values should be validated against the additionalProperties schema:\n" + conf);
     }
 

@@ -12,6 +12,15 @@ Generator design decisions reference this file. Last run: 2026-07-04 against
   (generated selectors use `(?:array_)?\d{1,9}` to match both).
 - Coraza also lists container nodes (`json.category`, `json.photoUrls`) in
   `ARGS_NAMES`, not just leaves — allowlists must include intermediate prefixes.
+- For ROOT-level array bodies Coraza additionally lists the bare `json` node in
+  `ARGS_NAMES` (it does not for object bodies) — root-array allowlists must
+  include the literal `json` entry.
+- **Coraza lowercases arg keys before matching regex collection selectors**
+  (`ARGS:/.../`): a selector containing `userStatus` silently never matches.
+  ARGS_NAMES *values* keep their original case. All generated selectors carry
+  an inline `(?i)` flag, which both engines accept.
+- The root of the generated schema.json must not declare `type: object` —
+  root-array request bodies would fail Coraza's `@validateSchema`.
 - **JSON `null` flattens to a present key with an EMPTY value on both engines**
   (indistinguishable from `""`). Nullable properties are therefore validated with
   an optional-wrapped value pattern; a required-presence rule still sees the key.

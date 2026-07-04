@@ -91,9 +91,9 @@ public class Phase4EnforcementTest {
 
     @Test
     void bodyArrayCountsAreEnforced() {
-        assertTrue(conf.contains("SecRule &ARGS:/^json\\.labels\\.(?:array_)?\\d{1,9}$/ \"@lt 1\""),
+        assertTrue(conf.contains("SecRule &ARGS:/(?i)^json\\.labels\\.(?:array_)?\\d{1,9}$/ \"@lt 1\""),
                 "minItems count rule missing:\n" + conf);
-        assertTrue(conf.contains("SecRule &ARGS:/^json\\.labels\\.(?:array_)?\\d{1,9}$/ \"@gt 3\""),
+        assertTrue(conf.contains("SecRule &ARGS:/(?i)^json\\.labels\\.(?:array_)?\\d{1,9}$/ \"@gt 3\""),
                 "maxItems count rule missing:\n" + conf);
     }
 

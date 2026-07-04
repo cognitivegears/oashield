@@ -76,7 +76,7 @@ public class Phase7LongTailTest {
                 "patternProperties names should be allowlisted by their pattern:\n" + conf);
         assertFalse(conf.contains("json\\.labels\\..{1,256}"),
                 "patternProperties must replace the broad free-form wildcard:\n" + conf);
-        assertTrue(conf.contains("ARGS:/^json\\.labels\\.x-[^.]*$/ \"!@rx ^-?[0-9]{1,19}$\""),
+        assertTrue(conf.contains("ARGS:/(?i)^json\\.labels\\.x-[^.]*$/ \"!@rx ^-?[0-9]{1,19}$\""),
                 "patternProperties values should be validated by type:\n" + conf);
     }
 

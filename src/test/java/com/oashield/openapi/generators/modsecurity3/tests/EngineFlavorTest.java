@@ -56,7 +56,7 @@ public class EngineFlavorTest {
         // issue #14: per-field body validation
         assertTrue(conf.contains("SecRule &ARGS:json.name \"@eq 0\""), "required property presence rule");
         assertTrue(conf.contains("SecRule ARGS:json.id \"!@rx ^[0-9]{1,19}$\""), "typed property rule");
-        assertTrue(conf.contains("ARGS:/^json\\.photoUrls\\.(?:array_)?\\d{1,9}$/"),
+        assertTrue(conf.contains("ARGS:/(?i)^json\\.photoUrls\\.(?:array_)?\\d{1,9}$/"),
                 "array element rule must match both engines' index forms");
         assertTrue(conf.contains("SecRule ARGS:json.status \"!@rx ^(available|pending|sold)$\""), "enum rule");
         // additionalProperties enforcement incl. container prefixes (Coraza lists them)

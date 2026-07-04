@@ -84,15 +84,16 @@ public class Phase1FixesTest {
     void rootArrayBodyOfModelsIsFlattened() {
         assertTrue(conf.contains("json\\.(?:array_)?\\d{1,9}\\.username"),
                 "root-array element fields should be validated and allowlisted:\n" + conf);
-        // the array-body operation's ARGS_NAMES allowlist covers element keys and fields
+        // the array-body operation's ARGS_NAMES allowlist covers the bare json
+        // container (Coraza lists it for root arrays), index keys, and fields
         assertTrue(conf.contains(
-                "^(?:json\\.(?:array_)?\\d{1,9}|json\\.(?:array_)?\\d{1,9}\\.username|json\\.(?:array_)?\\d{1,9}\\.level)$"),
+                "^(?:json|json\\.(?:array_)?\\d{1,9}|json\\.(?:array_)?\\d{1,9}\\.username|json\\.(?:array_)?\\d{1,9}\\.level)$"),
                 "root-array body allowlist should cover index keys and element fields:\n" + conf);
     }
 
     @Test
     void rootArrayBodyOfPrimitivesIsFlattened() {
-        assertTrue(conf.contains("/^json\\.(?:array_)?\\d{1,9}$/"),
+        assertTrue(conf.contains("/(?i)^json\\.(?:array_)?\\d{1,9}$/"),
                 "root-array primitive elements should get an indexed selector:\n" + conf);
     }
 

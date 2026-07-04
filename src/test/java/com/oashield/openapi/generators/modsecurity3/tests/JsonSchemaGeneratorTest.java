@@ -2,6 +2,7 @@ package com.oashield.openapi.generators.modsecurity3.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -58,7 +59,9 @@ public class JsonSchemaGeneratorTest {
         // Validate the schema structure
         assertEquals("http://json-schema.org/draft-07/schema#", schemaNode.get("$schema").asText());
         assertEquals("OpenAPI Schema Definitions", schemaNode.get("title").asText());
-        assertEquals("object", schemaNode.get("type").asText());
+        // no root "type": bodies may be objects or arrays (root-array bodies would
+        // fail a type:object root under Coraza's @validateSchema)
+        assertNull(schemaNode.get("type"));
 
         // Validate the model definition
         JsonNode definitions = schemaNode.get("definitions");

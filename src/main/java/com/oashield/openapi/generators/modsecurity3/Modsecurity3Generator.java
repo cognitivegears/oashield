@@ -598,6 +598,9 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
           // index 0 stands in for every element (generalized to a regex later);
           // without this the ARGS_NAMES allowlist is empty and every element key
           // is rejected as an unknown parameter.
+          // Coraza also lists the bare "json" container node in ARGS_NAMES for
+          // root arrays (it does not for object bodies).
+          argsAllowlist.add("json");
           List<CodegenProperty> flattenedProperties = new ArrayList<CodegenProperty>();
           List<CodegenProperty> itemVars = null;
           if (param.items != null) {
@@ -1238,7 +1241,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       // engines (object arrays flatten to per-field leaves with no index-only key
       // on ModSecurity3).
       if (!indexedPath && (prop.getMinItems() != null || prop.getMaxItems() != null)) {
-        prop.vendorExtensions.put("x-oashield-countSelector", "/^" + body + "$/");
+        prop.vendorExtensions.put("x-oashield-countSelector", "/(?i)^" + body + "$/");
         // minItems only for REQUIRED arrays: an absent optional array also counts
         // 0 and there is no per-field way to distinguish absent from empty on
         // ModSecurity3 (schema.json covers optional arrays on Coraza).
@@ -1265,7 +1268,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
         for (Map<String, Object> rule : ppRules) {
           String nameRegex = (String) rule.get("nameRegex");
           argsAllowlist.add(body + "\\." + nameRegex);
-          rule.put("selector", "/^" + body + "\\." + nameRegex + "$/");
+          rule.put("selector", "/(?i)^" + body + "\\." + nameRegex + "$/");
           rule.put("ruleId", globalParamIndex++);
         }
         for (int i = 1; i <= PROP_INDEX_MAX; i++) {
@@ -1278,7 +1281,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       if (prop.isMap && valueSchema != null
           && !valueSchema.isModel && !valueSchema.isMap && !valueSchema.isArray
           && !valueSchema.isFreeFormObject) {
-        prop.vendorExtensions.put("x-oashield-argTarget", "/^" + body + "\\.[^.]{1,64}$/");
+        prop.vendorExtensions.put("x-oashield-argTarget", "/(?i)^" + body + "\\.[^.]{1,64}$/");
         String valuePattern = sanitizeSpecPattern(valueSchema.pattern);
         if (valuePattern == null || valuePattern.isEmpty() || isInvalidPattern(valuePattern)) {
           valuePattern = patternGenerationService.getPropertyPattern(valueSchema);
@@ -1293,7 +1296,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       return;
     }
 
-    prop.vendorExtensions.put("x-oashield-argTarget", indexed ? "/^" + body + "$/" : path);
+    prop.vendorExtensions.put("x-oashield-argTarget", indexed ? "/(?i)^" + body + "$/" : path);
 
     // Type pattern: for arrays validate each element against the item type
     CodegenProperty typeSource = prop;
@@ -1328,7 +1331,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       prop.vendorExtensions.put("x-oashield-requiredRule", true);
       String parent = path.substring(0, path.lastIndexOf('.') + 1);
       if (!parent.equals(JSON_ARGS_PREFIX)) {
-        prop.vendorExtensions.put("x-oashield-parentSelector", "/^" + escapeRegexLiteral(parent) + "/");
+        prop.vendorExtensions.put("x-oashield-parentSelector", "/(?i)^" + escapeRegexLiteral(parent) + "/");
       }
     }
 
@@ -1432,7 +1435,9 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       rootSchema.put("$schema", "http://json-schema.org/draft-07/schema#");
       rootSchema.put("title", "OpenAPI Schema Definitions");
       rootSchema.put("description", "JSON Schema definitions generated from OpenAPI specification");
-      rootSchema.put("type", "object");
+      // No root "type": the document is a definitions container and the request
+      // body may legally be an object OR an array (root-array bodies would fail
+      // a type:object root under Coraza's @validateSchema).
       ObjectNode definitions = rootSchema.putObject("definitions");
 
       JsonSchemaGenerator generator = new JsonSchemaGenerator();
