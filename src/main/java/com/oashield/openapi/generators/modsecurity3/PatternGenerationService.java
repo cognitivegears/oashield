@@ -1,6 +1,7 @@
 package com.oashield.openapi.generators.modsecurity3;
 
 import org.openapitools.codegen.CodegenParameter;
+import org.openapitools.codegen.CodegenProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -114,6 +115,40 @@ public class PatternGenerationService {
             }
         }
         return patternString;
+    }
+
+    /**
+     * Generates a validation pattern for a model property (flattened JSON body field)
+     * by adapting it to a CodegenParameter and delegating to getParamPattern.
+     * JSON body values are always present when the arg exists, so required=true.
+     *
+     * @param prop The model property to generate a pattern for
+     * @return A regex pattern string for validating the property value
+     */
+    public String getPropertyPattern(CodegenProperty prop) {
+        CodegenParameter param = new CodegenParameter();
+        param.baseName = prop.baseName;
+        param.required = true;
+        param.isInteger = prop.isInteger;
+        param.isLong = prop.isLong;
+        param.isNumber = prop.isNumber;
+        param.isFloat = prop.isFloat;
+        param.isDouble = prop.isDouble;
+        param.isDecimal = prop.isDecimal;
+        param.isBoolean = prop.isBoolean;
+        param.isUuid = prop.isUuid;
+        param.isDate = prop.isDate;
+        param.isDateTime = prop.isDateTime;
+        param.isEmail = prop.isEmail;
+        param.isEnum = prop.isEnum;
+        param.allowableValues = prop.allowableValues;
+        param.setMinLength(prop.getMinLength());
+        param.setMaxLength(prop.getMaxLength());
+        // format detection is via vendorExtensions x-format (CodegenParameter.setFormat is unreliable)
+        if (prop.dataFormat != null) {
+            param.vendorExtensions.put("x-format", prop.dataFormat);
+        }
+        return getParamPattern(param);
     }
 
     /**

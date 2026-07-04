@@ -18,6 +18,37 @@ tags:
   - name: user
     description: Operations about user
 paths:
+  /pets:
+    get:
+      tags:
+        - pet
+      summary: List pets with optional limit
+      description: Returns a list of pets with optional limit parameter
+      operationId: listPets
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of pets to return
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+        '400':
+          description: Invalid limit value
+      security:
+        - petstore_auth:
+            - 'read:pets'
   /pet/findByStatus:
     get:
       tags:

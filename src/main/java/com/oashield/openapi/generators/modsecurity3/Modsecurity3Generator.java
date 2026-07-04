@@ -46,6 +46,15 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     private boolean generateJsonSchema = true;
     public String jsonSchemaOutputFile = "schema.json";
 
+    // Target WAF engine flavor: both accept the same SecLang core, but only
+    // Coraza implements @validateSchema for JSON bodies (ModSecurity3's is XSD-only).
+    private String engineFlavor = FLAVOR_MODSECURITY3;
+    private boolean validateBodySchema = true;
+    // Path to the schema file as referenced from inside the generated @validateSchema
+    // rule. Coraza resolves it relative to the server process working directory, which
+    // generally differs from the rules directory (e.g. "rules/schema.json").
+    private String schemaRulePath = null;
+
     /**
      * Process the CLI options passed to the generator.
      *
@@ -66,6 +75,31 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
             jsonSchemaOutputFile = additionalProperties.get("jsonSchemaOutputFile").toString();
             LOGGER.info("jsonSchemaOutputFile set to: {}", jsonSchemaOutputFile);
         }
+
+        if (additionalProperties.containsKey(ENGINE_FLAVOR)) {
+            engineFlavor = additionalProperties.get(ENGINE_FLAVOR).toString();
+            if (!FLAVOR_MODSECURITY3.equals(engineFlavor) && !FLAVOR_CORAZA.equals(engineFlavor)) {
+                throw new IllegalArgumentException(
+                    "Unknown engineFlavor '" + engineFlavor + "'; expected '" + FLAVOR_MODSECURITY3
+                        + "' or '" + FLAVOR_CORAZA + "'");
+            }
+            LOGGER.info("engineFlavor set to: {}", engineFlavor);
+        }
+        // Overwrite with real booleans: CLI additional properties arrive as strings and
+        // the string "false" is truthy in mustache sections.
+        additionalProperties.put("isCoraza", FLAVOR_CORAZA.equals(engineFlavor));
+        additionalProperties.put("isModsec3", FLAVOR_MODSECURITY3.equals(engineFlavor));
+
+        if (additionalProperties.containsKey("validateBodySchema")) {
+            validateBodySchema = Boolean.parseBoolean(additionalProperties.get("validateBodySchema").toString());
+            LOGGER.info("validateBodySchema set to: {}", validateBodySchema);
+        }
+        additionalProperties.put("validateBodySchema", validateBodySchema);
+
+        if (additionalProperties.containsKey("schemaRulePath")) {
+            schemaRulePath = additionalProperties.get("schemaRulePath").toString();
+        }
+        additionalProperties.put("schemaRulePath", schemaRulePath != null ? schemaRulePath : jsonSchemaOutputFile);
     }
 
   private static final Logger LOGGER = LoggerFactory.getLogger(Modsecurity3Generator.class);
@@ -79,6 +113,20 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
   private static final String MODSECURITY_HAS_JSON = "x-codegen-isJson";
   private static final String MODSECURITY_HAS_XML = "x-codegen-isXml";
   private static final String MODSECURITY_MODEL_PROPERTIES = "x-codegen-modelProperties";
+  private static final String MODSECURITY_ARGS_ALLOWLIST = "x-codegen-argsAllowlist";
+
+  private static final String ENGINE_FLAVOR = "engineFlavor";
+  private static final String FLAVOR_MODSECURITY3 = "modsecurity3";
+  private static final String FLAVOR_CORAZA = "coraza";
+
+  // Prefix both engines use when flattening JSON bodies into ARGS
+  private static final String JSON_ARGS_PREFIX = "json.";
+  // ModSecurity3 keys array elements "json.items.array_0", Coraza "json.items.0";
+  // this fragment matches either so generated selectors work on both engines.
+  private static final String ARRAY_INDEX_REGEX = "(?:array_)?\\d{1,9}";
+  private static final String PROP_INDEX_KEY = "x-codegen-propIndex";
+  private static final int PROP_INDEX_MAX = 6;
+  private static final int MAX_FLATTEN_DEPTH = 5;
 
 
   // source folder where to write the files
@@ -255,17 +303,24 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     OperationMap ops = results.getOperations();
     List<CodegenOperation> opList = ops.getOperation();
 
+    // $ref properties carry no vars of their own; resolve them via the model list
+    Map<String, CodegenModel> modelLookup = new HashMap<String, CodegenModel>();
+    if (allModels != null) {
+      for (ModelMap modelMap : allModels) {
+        CodegenModel model = modelMap.getModel();
+        if (model != null) {
+          modelLookup.put(model.classname, model);
+          modelLookup.put(model.name, model);
+        }
+      }
+    }
+
     // iterate over the operation and perhaps modify something
     for (CodegenOperation co : opList) {
-      String path = co.path;
-      String matchPath = path.replaceAll("\\{.*?\\}", "[^/]+");
-      co.vendorExtensions.put(MODSECURITY_PATH_REGEX_KEY, matchPath);
       for (int i=1; i<=MODSECURITY_INDEX_MAX;i++) {
         co.vendorExtensions.put(MODSECURITY_INDEX_KEY + "_" + i, globalIndex++);
       }
       LOGGER.debug("Processing operation: {}", co.operationId);
-      // example:
-      // co.httpMethod = co.httpMethod.toLowerCase();
 
       Boolean includeRequestJSON = false;
       Boolean includeRequestXML = false;
@@ -282,14 +337,22 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
             String isXmlString = consume.get("isXml");
             includeRequestXML = isXmlString != null && isXmlString.equals("true");
           }
+          // mediaType can contain regex metacharacters (e.g. application/vnd.api+json)
+          String mediaType = consume.get("mediaType");
+          if (mediaType != null) {
+            consume.put("mediaTypeRegex", escapeRegexLiteral(mediaType));
+          }
         }
       }
 
       // Add vendor extension for JSON and XML
       co.vendorExtensions.put(MODSECURITY_HAS_JSON, includeRequestJSON);
       co.vendorExtensions.put(MODSECURITY_HAS_XML, includeRequestXML);
+      co.vendorExtensions.put("validateBodySchema", validateBodySchema);
 
-      ArrayList<CodegenProperty> allParams = new ArrayList<CodegenProperty>();
+      // Names allowed to appear in ARGS_NAMES for this operation (query + form +
+      // flattened JSON body fields); anything else is denied by the generated allowlist rule.
+      java.util.Set<String> argsAllowlist = new java.util.LinkedHashSet<String>();
 
       // Loop through parameters and print information about them
       for (CodegenParameter param : co.allParams) {
@@ -304,19 +367,23 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
           LOGGER.debug("Model parameter: {}", param.baseName);
           // We need to flatten the model into something that can be used in the template
           // This will be a new vendor extension with an array of properties that represent
-          // the model
+          // the model. Both engines flatten JSON bodies into ARGS as "json.<path>".
           List<CodegenProperty> flattenedProperties = new ArrayList<CodegenProperty>();
           for (CodegenProperty prop : param.vars) {
-            // We need to create a new CodegenParameter for each property
-            // Unless the property is a model, then we need to flatten that model
-            // into properties
-
-            List<CodegenProperty> properties = flattenModel(prop, param.baseName + ".");
+            List<CodegenProperty> properties = flattenModel(prop, JSON_ARGS_PREFIX, 1, modelLookup);
             flattenedProperties.addAll(properties);
+          }
+
+          for (CodegenProperty prop : flattenedProperties) {
+            decorateBodyProperty(prop, argsAllowlist);
           }
 
           // Add the flattened properties to the parameter
           param.vendorExtensions.put(MODSECURITY_MODEL_PROPERTIES, flattenedProperties);
+        }
+
+        if (param.isQueryParam || param.isFormParam) {
+          argsAllowlist.add(escapeRegexLiteral(param.baseName));
         }
 
         param.vendorExtensions.put(MODSECURITY_HAS_ARRAY_MIN, (param.getMinItems() != null));
@@ -325,7 +392,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
           param.vendorExtensions.put(MODSECURITY_INDEX_KEY + "_" + i, globalParamIndex++);
         }
 
-        String patternString = param.pattern;
+        String patternString = sanitizeSpecPattern(param.pattern);
 
         if(patternString != null && !patternString.isEmpty()) {
           LOGGER.debug("Config pattern string used: {}", patternString);
@@ -346,6 +413,13 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
             param.isString, param.getMaxLength());
 
       }
+
+      // One regex matches the route AND validates path parameter values: each {param}
+      // is replaced with that parameter's validation pattern. Works on both engines,
+      // unlike the Coraza-only @restpath/ARGS_PATH (issue #42). Must run after the
+      // param loop so parameter patterns exist.
+      co.vendorExtensions.put(MODSECURITY_PATH_REGEX_KEY, buildPathMatchRegex(co));
+      co.vendorExtensions.put(MODSECURITY_ARGS_ALLOWLIST, String.join("|", argsAllowlist));
     }
 
     Map<String, Object> vendorExtensions = new HashMap<String, Object>();
@@ -356,45 +430,226 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
   }
 
   public List<CodegenProperty> flattenModel(CodegenProperty currentProperty, String baseNamePrefix) {
+    return flattenModel(currentProperty, baseNamePrefix, 1, java.util.Collections.<String, CodegenModel>emptyMap());
+  }
+
+  public List<CodegenProperty> flattenModel(CodegenProperty currentProperty, String baseNamePrefix, int depth,
+      Map<String, CodegenModel> modelLookup) {
     List<CodegenProperty> properties = new ArrayList<CodegenProperty>();
 
-    // handle array of primitives as single property
-    if (currentProperty.isArray && currentProperty.vars != null && !currentProperty.vars.isEmpty() && currentProperty.vars.get(0).isPrimitiveType) {
-      currentProperty.baseName = baseNamePrefix + currentProperty.baseName;
-      properties.add(currentProperty);
+    // Bounded recursion: cyclic/self-referencing models would otherwise never terminate.
+    if (depth > MAX_FLATTEN_DEPTH) {
+      LOGGER.warn("Model nesting deeper than {} levels at '{}{}'; deeper properties are not validated per-field",
+          MAX_FLATTEN_DEPTH, baseNamePrefix, currentProperty.baseName);
       return properties;
     }
-    // 1. The property is a model
-    if(currentProperty.isModel) {
-      // Recursively flatten the model
-      LOGGER.debug("Flattening model property: {}", currentProperty.baseName);
-      baseNamePrefix += currentProperty.baseName + ".";
-      for(CodegenProperty prop : currentProperty.vars) {
-        List<CodegenProperty> flattenedProperties = flattenModel(prop, baseNamePrefix);
-        properties.addAll(flattenedProperties);
-      }
-    }
 
-    // 2. The property is an array of models
-    else if(currentProperty.isArray) {
+    if (currentProperty.isArray) {
+      List<CodegenProperty> itemVars = null;
+      if (currentProperty.vars != null && !currentProperty.vars.isEmpty()) {
+        // inline item schema: vars carries the element properties
+        if (currentProperty.vars.get(0).isPrimitiveType) {
+          properties.add(flattenedLeaf(currentProperty, baseNamePrefix));
+          return properties;
+        }
+        itemVars = currentProperty.vars;
+      } else if (currentProperty.items != null) {
+        // $ref item schema: resolve the referenced model's properties
+        itemVars = lookupModelVars(currentProperty.items, modelLookup);
+        if (itemVars == null) {
+          // array of primitives: one rule covers every element via an index selector
+          properties.add(flattenedLeaf(currentProperty, baseNamePrefix));
+          return properties;
+        }
+      }
       LOGGER.debug("Flattening array of model property: {}", currentProperty.baseName);
-      int i = 0;
-      for(CodegenProperty prop : currentProperty.vars) {
-        List<CodegenProperty> flattenedProperties = flattenModel(prop, baseNamePrefix + currentProperty.baseName + "." + i + ".");
-        i++;
-        properties.addAll(flattenedProperties);
+      if (itemVars != null) {
+        // Element index is generalized to a regex later, so flattening index 0 stands in
+        // for every element.
+        for (CodegenProperty prop : itemVars) {
+          properties.addAll(flattenModel(prop, baseNamePrefix + currentProperty.baseName + ".0.", depth + 1, modelLookup));
+        }
+      }
+      return properties;
+    }
+
+    if (currentProperty.isModel) {
+      LOGGER.debug("Flattening model property: {}", currentProperty.baseName);
+      List<CodegenProperty> vars = (currentProperty.vars != null && !currentProperty.vars.isEmpty())
+          ? currentProperty.vars
+          : lookupModelVars(currentProperty, modelLookup);
+      baseNamePrefix += currentProperty.baseName + ".";
+      if (vars == null) {
+        LOGGER.warn("No properties resolvable for model property '{}'; its fields are not validated per-field",
+            currentProperty.baseName);
+        return properties;
+      }
+      for (CodegenProperty prop : vars) {
+        properties.addAll(flattenModel(prop, baseNamePrefix, depth + 1, modelLookup));
+      }
+      return properties;
+    }
+
+    LOGGER.debug("Adding property: {}", currentProperty.baseName);
+    properties.add(flattenedLeaf(currentProperty, baseNamePrefix));
+    return properties;
+  }
+
+  /**
+   * Resolve the referenced model's properties for a $ref property (whose own vars
+   * list is empty). Returns null when the property is not a model reference or the
+   * model is unknown.
+   */
+  private static List<CodegenProperty> lookupModelVars(CodegenProperty prop, Map<String, CodegenModel> modelLookup) {
+    if (prop.complexType == null) {
+      return null;
+    }
+    CodegenModel model = modelLookup.get(prop.complexType);
+    return model != null ? model.vars : null;
+  }
+
+  /**
+   * Copy a leaf property with the flattened name instead of mutating it: models are
+   * shared between operations, so in-place mutation would double-prefix the second
+   * operation that references the same model (json.json.id).
+   */
+  private static CodegenProperty flattenedLeaf(CodegenProperty prop, String baseNamePrefix) {
+    CodegenProperty flat = prop.clone();
+    flat.baseName = baseNamePrefix + prop.baseName;
+    flat.vendorExtensions = new HashMap<String, Object>(
+        prop.vendorExtensions != null ? prop.vendorExtensions : java.util.Collections.<String, Object>emptyMap());
+    return flat;
+  }
+
+  /**
+   * Escape a literal string for safe embedding in an RE2/PCRE regex.
+   */
+  static String escapeRegexLiteral(String literal) {
+    return literal.replaceAll("([.^$+?*()\\[\\]{}|\\\\])", "\\\\$1");
+  }
+
+  /**
+   * Undo DefaultCodegen.toRegularExpression() mangling of spec-provided patterns:
+   * it wraps them in /.../ delimiters and doubles backslashes, neither of which
+   * belongs in a SecRule @rx operand.
+   */
+  static String sanitizeSpecPattern(String pattern) {
+    if (pattern == null) {
+      return null;
+    }
+    String result = pattern;
+    if (result.length() >= 2 && result.startsWith("/") && result.endsWith("/")) {
+      result = result.substring(1, result.length() - 1);
+      result = result.replace("\\\\", "\\");
+    }
+    return result;
+  }
+
+  /**
+   * Build the operation's path-match regex: literal segments are regex-escaped and
+   * each {param} placeholder is replaced with that path parameter's validation
+   * pattern (anchors stripped). Unknown parameters fall back to a single segment.
+   */
+  String buildPathMatchRegex(CodegenOperation co) {
+    Map<String, String> paramPatterns = new HashMap<String, String>();
+    for (CodegenParameter param : co.allParams) {
+      if (param.isPathParam && param.pattern != null && !param.pattern.isEmpty()) {
+        paramPatterns.put(param.baseName, param.pattern);
       }
     }
 
-    // 3. The property is a primitive type
-    else {
-      LOGGER.debug("Adding property: {}", currentProperty.baseName);
-      // Add the baseNamePrefix to the property
-      currentProperty.baseName = baseNamePrefix + currentProperty.baseName;
-      properties.add(currentProperty);
+    StringBuilder regex = new StringBuilder();
+    java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\{([^/{}]+)\\}").matcher(co.path);
+    int last = 0;
+    while (m.find()) {
+      regex.append(escapeRegexLiteral(co.path.substring(last, m.start())));
+      String pattern = paramPatterns.get(m.group(1));
+      if (pattern != null) {
+        regex.append("(?:").append(stripAnchors(pattern)).append(")");
+      } else {
+        regex.append("[^/]+");
+      }
+      last = m.end();
+    }
+    regex.append(escapeRegexLiteral(co.path.substring(last)));
+    return regex.toString();
+  }
+
+  private static String stripAnchors(String pattern) {
+    String result = pattern;
+    if (result.startsWith("^")) {
+      result = result.substring(1);
+    }
+    if (result.endsWith("$") && !result.endsWith("\\$")) {
+      result = result.substring(0, result.length() - 1);
+    }
+    return result;
+  }
+
+  /**
+   * Decorate a flattened JSON body property with the vendor extensions the template
+   * needs to emit per-field rules, and add its name pattern to the operation's
+   * ARGS_NAMES allowlist.
+   *
+   * x-oashield-argTarget is either the literal ARGS key ("json.category.name") or,
+   * when the path crosses an array, a regex selector ("/^json\.tags\.(?:array_)?\d{1,9}\.name$/")
+   * that matches both engines' array key forms.
+   */
+  private void decorateBodyProperty(CodegenProperty prop, java.util.Collection<String> argsAllowlist) {
+    String path = prop.baseName;
+    boolean indexedPath = path.matches(".*\\.0(\\..*|$)");
+    boolean indexed = indexedPath || prop.isArray;
+
+    StringBuilder body = new StringBuilder();
+    String[] segments = path.split("\\.");
+    for (int i = 0; i < segments.length; i++) {
+      if (i > 0) {
+        body.append("\\.");
+      }
+      body.append(segments[i].equals("0") ? ARRAY_INDEX_REGEX : escapeRegexLiteral(segments[i]));
+      // Coraza also lists container nodes (json.photoUrls, json.category, ...) in
+      // ARGS_NAMES, not just leaves, so every intermediate prefix must be allowed.
+      if (i > 0) {
+        argsAllowlist.add(body.toString());
+      }
+    }
+    if (prop.isArray) {
+      // array of primitives: actual arg keys carry an index suffix (json.items.0 / json.items.array_0)
+      body.append("\\.").append(ARRAY_INDEX_REGEX);
+      argsAllowlist.add(body.toString());
     }
 
-    return properties;
+    prop.vendorExtensions.put("x-oashield-argTarget", indexed ? "/^" + body + "$/" : path);
+
+    // Type pattern: for arrays validate each element against the item type
+    CodegenProperty typeSource = prop;
+    if (prop.isArray) {
+      if (prop.vars != null && !prop.vars.isEmpty()) {
+        typeSource = prop.vars.get(0);
+      } else if (prop.items != null) {
+        typeSource = prop.items;
+      }
+    }
+    String pattern = sanitizeSpecPattern(typeSource.pattern);
+    if (pattern == null || pattern.isEmpty() || isInvalidPattern(pattern)) {
+      pattern = patternGenerationService.getPropertyPattern(typeSource);
+    }
+    prop.vendorExtensions.put("x-oashield-pattern", pattern);
+
+    // Required-presence rules only for non-array paths: per-element "required" has no
+    // meaningful &-count form. Nested required properties are guarded on their parent
+    // being present (JSON Schema semantics: required applies only within its object).
+    if (prop.required && !indexed) {
+      prop.vendorExtensions.put("x-oashield-requiredRule", true);
+      String parent = path.substring(0, path.lastIndexOf('.') + 1);
+      if (!parent.equals(JSON_ARGS_PREFIX)) {
+        prop.vendorExtensions.put("x-oashield-parentSelector", "/^" + escapeRegexLiteral(parent) + "/");
+      }
+    }
+
+    for (int i = 1; i <= PROP_INDEX_MAX; i++) {
+      prop.vendorExtensions.put(PROP_INDEX_KEY + "_" + i, globalParamIndex++);
+    }
   }
 
   /**
@@ -577,6 +832,21 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     cliOptions.add(new CliOption("generateJsonSchema", "Generate JSON Schema from models")
         .defaultValue(Boolean.toString(generateJsonSchema)));
     cliOptions.add(new CliOption("jsonSchemaOutputFile", "JSON Schema output file name")
+        .defaultValue(jsonSchemaOutputFile));
+
+    // Engine flavor and body validation options
+    additionalProperties.put("isCoraza", false);
+    additionalProperties.put("isModsec3", true);
+    additionalProperties.put("validateBodySchema", validateBodySchema);
+    additionalProperties.put("schemaRulePath", jsonSchemaOutputFile);
+    cliOptions.add(new CliOption(ENGINE_FLAVOR,
+        "Target WAF engine: 'modsecurity3' (per-field JSON body rules) or 'coraza' (adds @validateSchema)")
+        .defaultValue(FLAVOR_MODSECURITY3));
+    cliOptions.add(new CliOption("validateBodySchema", "Emit request body validation rules")
+        .defaultValue(Boolean.toString(validateBodySchema)));
+    cliOptions.add(new CliOption("schemaRulePath",
+        "Schema file path as referenced from the generated @validateSchema rule (coraza flavor); "
+            + "resolved by Coraza relative to the server working directory")
         .defaultValue(jsonSchemaOutputFile));
 
     /**

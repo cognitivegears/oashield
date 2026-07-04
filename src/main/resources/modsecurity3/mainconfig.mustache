@@ -7,6 +7,11 @@ SecRequestBodyAccess On
 # Enable the default block action to return a 403
 SecDefaultAction "phase:2,log,auditlog,deny,status:403"
 
+# Select body processors in phase 1: body parsing happens between phases 1 and 2,
+# so a phase-2 ctl would be a no-op and JSON/XML bodies would never reach ARGS.
+SecRule REQUEST_HEADERS:Content-Type "@rx (?i)^application/(?:[a-z0-9.+-]+\+)?json" "id:4200000,phase:1,pass,nolog,ctl:requestBodyProcessor=JSON"
+SecRule REQUEST_HEADERS:Content-Type "@rx (?i)^(?:application|text)/(?:[a-z0-9.+-]+\+)?xml" "id:4199999,phase:1,pass,nolog,ctl:requestBodyProcessor=XML"
+
 # Include the configuration for each operation
 {{#apiInfo}}
 {{#apis}}
