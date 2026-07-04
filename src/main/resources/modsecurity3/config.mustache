@@ -121,8 +121,13 @@ SecMarker ENDMEDIA_{{operationId}}_{{consumeIndex}}
 {{#isXml}}
 SecRule REQUEST_HEADERS:Content-Type "!@rx ^{{mediaTypeRegex}}" "id:{{oasGateId}},phase:2,pass,nolog,skipAfter:ENDMEDIA_{{operationId}}_{{consumeIndex}}"
 SecRule REQBODY_ERROR "!@eq 0" "id:{{oasBodyErrId}},phase:2,block,msg:'Failed to parse request body',{{logAction}},skipAfter:FAILED_API_CHECKS"
-
-# TODO: Implement XML schema validation (issue #14 covers JSON objects)
+{{#validateXmlSchema}}
+{{#isModsec3}}
+# XSD validation is opt-in: current libmodsecurity3 fails to load XSDs at request
+# time (docs/engine-behavior.md); enable only on an engine build where it works.
+SecRule XML "@validateSchema {{xsdRulePath}}" "id:{{oasSchemaId}},phase:2,block,msg:'XML schema validation failed for {{operationId}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/isModsec3}}
+{{/validateXmlSchema}}
 SecAction "id:{{oasPassId}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
 
 SecMarker ENDMEDIA_{{operationId}}_{{consumeIndex}}

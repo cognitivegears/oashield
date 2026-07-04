@@ -20,6 +20,9 @@ the known limitations of request-body validation.
 | `includeEngineConfig` | `true` | Emit `SecRuleEngine On`, `SecRequestBodyAccess On`, and the `SecDefaultAction` in `mainconfig.conf`. Set `false` when your existing WAF configuration already defines these |
 | `unknownMediaTypePolicy` | `pass` | Handling of declared request media types the WAF cannot inspect (e.g. `application/octet-stream`, `text/plain`): `pass` lets them through after the content-type gate, `block` rejects them |
 | `basePath` | auto | Path prefix for all generated path-match rules. Defaults to the path component of the spec's first `servers.url` (server variables match one path segment). Pass an empty string to disable prefixing |
+| `validateXmlSchema` | `false` | Generate an XSD from the models and emit `@validateSchema` XML rules (modsecurity3 flavor only). Off by default because current libmodsecurity3 cannot load XSDs at request time (its XXE hardening breaks the schema load, blocking all XML) and Coraza has no XML support — see `docs/engine-behavior.md` |
+| `xsdOutputFile` | `schema.xsd` | XSD output file name |
+| `xsdRulePath` | same as `xsdOutputFile` | XSD path written inside the `@validateSchema` XML rule |
 
 Pass them comma-separated:
 

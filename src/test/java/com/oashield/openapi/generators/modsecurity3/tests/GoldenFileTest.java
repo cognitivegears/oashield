@@ -30,7 +30,7 @@ public class GoldenFileTest {
 
     private static final Path GOLDEN_ROOT = Paths.get("src/test/resources/golden");
     private static final List<String> SAMPLES = List.of(
-            "petstore", "composed", "getparam", "urlintparam", "multipart", "paramfeatures");
+            "petstore", "composed", "getparam", "urlintparam", "multipart", "paramfeatures", "xmlbody");
     private static final List<String> FLAVORS = List.of("modsecurity3", "coraza");
 
     static Stream<Arguments> cases() {

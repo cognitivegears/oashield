@@ -68,6 +68,12 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     // Deployed base path prefix for path-match regexes; null = auto-extract from
     // the first servers.url, "" = no prefix.
     private String basePathOverride = null;
+    // XSD generation + @validateSchema XML rules. Default OFF: libmodsecurity3
+    // currently cannot load XSDs at request time (fails open to match-everything)
+    // and Coraza has no XML support — see docs/engine-behavior.md.
+    private boolean validateXmlSchema = false;
+    public String xsdOutputFile = "schema.xsd";
+    private String xsdRulePath = null;
     // false = emit no SecRuleEngine/SecRequestBodyAccess/SecDefaultAction, for
     // deployments whose existing ModSecurity config already sets them
     private boolean includeEngineConfig = true;
@@ -175,6 +181,19 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
             basePathOverride = additionalProperties.get("basePath").toString();
             LOGGER.info("basePath set to: '{}'", basePathOverride);
         }
+
+        if (additionalProperties.containsKey("validateXmlSchema")) {
+            validateXmlSchema = Boolean.parseBoolean(additionalProperties.get("validateXmlSchema").toString());
+            LOGGER.info("validateXmlSchema set to: {}", validateXmlSchema);
+        }
+        additionalProperties.put("validateXmlSchema", validateXmlSchema);
+        if (additionalProperties.containsKey("xsdOutputFile")) {
+            xsdOutputFile = additionalProperties.get("xsdOutputFile").toString();
+        }
+        if (additionalProperties.containsKey("xsdRulePath")) {
+            xsdRulePath = additionalProperties.get("xsdRulePath").toString();
+        }
+        additionalProperties.put("xsdRulePath", xsdRulePath != null ? xsdRulePath : xsdOutputFile);
 
         // Real boolean for the mustache section; derived strings so templates stay flat
         additionalProperties.put("includeEngineConfig", includeEngineConfig);
@@ -1189,7 +1208,32 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       generateJsonSchema(result);
     }
 
+    if (validateXmlSchema) {
+      generateXmlSchema(result);
+    }
+
     return result;
+  }
+
+  /**
+   * Generate the XSD from models (only when validateXmlSchema is enabled).
+   */
+  private void generateXmlSchema(Map<String, ModelsMap> models) {
+    LOGGER.info("Generating XSD from models...");
+    try {
+      String xsd = new XsdGenerator().generateXsd(models);
+      File outputDir = new File(outputFolder);
+      if (!outputDir.exists()) {
+        outputDir.mkdirs();
+      }
+      File xsdFile = new File(outputDir, xsdOutputFile);
+      try (FileWriter writer = new FileWriter(xsdFile)) {
+        writer.write(xsd);
+      }
+      LOGGER.info("XSD generated successfully: {}", xsdFile.getAbsolutePath());
+    } catch (Exception e) {
+      LOGGER.error("Error generating XSD", e);
+    }
   }
 
   /**
@@ -1334,6 +1378,18 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     cliOptions.add(new CliOption("basePath",
         "Base path prefix for all generated path-match rules; defaults to the path "
             + "component of the first servers.url, use an empty string to disable"));
+    additionalProperties.put("validateXmlSchema", false);
+    additionalProperties.put("xsdRulePath", xsdOutputFile);
+    cliOptions.add(new CliOption("validateXmlSchema",
+        "Generate an XSD from the models and emit @validateSchema XML rules "
+            + "(modsecurity3 flavor). Default false: current libmodsecurity3 cannot "
+            + "load XSDs at request time and Coraza has no XML support")
+        .defaultValue(Boolean.toString(validateXmlSchema)));
+    cliOptions.add(new CliOption("xsdOutputFile", "XSD output file name")
+        .defaultValue(xsdOutputFile));
+    cliOptions.add(new CliOption("xsdRulePath",
+        "XSD path as referenced from the generated @validateSchema XML rule")
+        .defaultValue(xsdOutputFile));
 
     /**
      * Supporting Files. You can write single files for the generator with the
