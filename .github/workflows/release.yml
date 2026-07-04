@@ -13,6 +13,11 @@ jobs:
   release:
     runs-on: ubuntu-latest
 
+    # The secrets context is not allowed in step `if:` expressions (the whole
+    # workflow fails to parse); hoist the presence check into an env var.
+    env:
+      HAS_SIGNING_KEY: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -39,13 +44,13 @@ jobs:
       # secret is configured. Without it, a release still produces the GitHub
       # Release and attached jars above.
       - name: Set up GPG
-        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        if: env.HAS_SIGNING_KEY == 'true'
         run: |
           echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
           echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --batch --import-ownertrust
 
       - name: Deploy to Maven Central
-        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        if: env.HAS_SIGNING_KEY == 'true'
         run: mvn deploy -P build-cli-jar -DskipTests --settings .github/maven-settings.xml
 
       - name: Update version in pom.xml
