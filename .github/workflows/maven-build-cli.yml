@@ -25,7 +25,7 @@ jobs:
       run: mvn -B package -P build-cli-jar -Dskip.http.calls=true
     
     - name: Upload CLI JAR
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: oashield-cli-jar
         path: target/oashield-cli.jar

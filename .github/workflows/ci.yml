@@ -30,7 +30,7 @@ jobs:
       run: mvn -B failsafe:integration-test failsafe:verify -Dskip.http.calls=true
     
     - name: Upload Test Reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-reports
@@ -43,7 +43,7 @@ jobs:
       run: mvn -B package -P build-cli-jar -Dskip.http.calls=true
     
     - name: Upload CLI JAR
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: oashield-cli-jar
         path: target/oashield-cli.jar
@@ -63,7 +63,7 @@ jobs:
         distribution: 'temurin'
     
     - name: Download CLI JAR
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: oashield-cli-jar
     
