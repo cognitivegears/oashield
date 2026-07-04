@@ -179,7 +179,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
   private static final Logger LOGGER = LoggerFactory.getLogger(Modsecurity3Generator.class);
 
   private static final String MODSECURITY_INDEX_KEY = "x-codegen-globalIndex";
-  private static final int MODSECURITY_INDEX_MAX = 30;
+  private static final int MODSECURITY_INDEX_MAX = 40;
   private static final String MODSECURITY_PATH_REGEX_KEY = "x-codegen-pathRegex";
   private static final String VENDOR_EXTENSIONS_KEY = "vendorExtensions";
   private static final String MODSECURITY_HAS_ARRAY_MIN = "x-codegen-hasArrayMin";
@@ -199,7 +199,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
   // this fragment matches either so generated selectors work on both engines.
   private static final String ARRAY_INDEX_REGEX = "(?:array_)?\\d{1,9}";
   private static final String PROP_INDEX_KEY = "x-codegen-propIndex";
-  private static final int PROP_INDEX_MAX = 6;
+  private static final int PROP_INDEX_MAX = 12;
   private static final int MAX_FLATTEN_DEPTH = 5;
 
 
