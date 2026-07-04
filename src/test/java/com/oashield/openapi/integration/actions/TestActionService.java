@@ -105,6 +105,22 @@ public final class TestActionService {
     }
 
     /**
+     * Execute GET request with explicit headers (including Cookie) and return the
+     * status code.
+     *
+     * @param path    endpoint path or full URL
+     * @param headers header name/value pairs
+     * @return status code, or null if skipped via skip.http.calls
+     */
+    public static Integer executeRawGetStatus(String path, java.util.Map<String, String> headers) {
+        if (configService.isHttpCallsSkipped()) {
+            logger.info("Skipping raw GET request to {} due to skip.http.calls", path);
+            return null;
+        }
+        return HttpRequestAction.executeRawGetRequest(buildUrl(path), headers);
+    }
+
+    /**
      * Assert a raw-request status code; a null actual status means the request was
      * skipped (skip.http.calls) and the assertion is a no-op.
      */

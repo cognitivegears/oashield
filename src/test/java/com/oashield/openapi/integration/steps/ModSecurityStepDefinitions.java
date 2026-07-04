@@ -184,4 +184,25 @@ public class ModSecurityStepDefinitions {
     private static String unescapeBody(String body) {
         return body.replace("\\r\\n", "\r\n");
     }
+
+    // Headers/cookies accumulated by "the request has ..." steps, consumed and
+    // cleared by the next raw GET step.
+    private final java.util.Map<String, String> pendingHeaders = new java.util.LinkedHashMap<>();
+
+    @io.cucumber.java.en.When("the request has header {string} set to {string}")
+    public void requestHasHeader(String name, String value) {
+        pendingHeaders.put(name, value);
+    }
+
+    @io.cucumber.java.en.When("the request has cookie {string} set to {string}")
+    public void requestHasCookie(String name, String value) {
+        pendingHeaders.merge("Cookie", name + "=" + value, (a, b) -> a + "; " + b);
+    }
+
+    @Then("a raw GET request to {string} should return a {int} status code")
+    public void rawGetRequestShouldReturnStatusCode(String path, int expectedStatus) {
+        Integer status = TestActionService.executeRawGetStatus(path, new java.util.LinkedHashMap<>(pendingHeaders));
+        pendingHeaders.clear();
+        TestActionService.assertRawStatus(status, expectedStatus, "raw GET request to " + path);
+    }
 }

@@ -38,6 +38,33 @@ public class HttpRequestAction {
     }
 
     /**
+     * Execute a GET request with explicit headers (including Cookie) and return
+     * the status code. Uses java.net.http directly so headers reach the WAF
+     * verbatim.
+     *
+     * @param url the URL to send the GET request to
+     * @param headers header name/value pairs to send
+     * @return the HTTP status code
+     */
+    public static int executeRawGetRequest(String url, Map<String, String> headers) {
+        logger.info("Executing raw GET request to URL: {} with headers: {}", url, headers.keySet());
+        try {
+            java.net.http.HttpRequest.Builder builder = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(url))
+                    .timeout(java.time.Duration.ofSeconds(30))
+                    .GET();
+            for (Map.Entry<String, String> h : headers.entrySet()) {
+                builder.header(h.getKey(), h.getValue());
+            }
+            return java.net.http.HttpClient.newHttpClient()
+                    .send(builder.build(), java.net.http.HttpResponse.BodyHandlers.ofString())
+                    .statusCode();
+        } catch (java.io.IOException | InterruptedException e) {
+            throw new RuntimeException("Raw GET request to " + url + " failed", e);
+        }
+    }
+
+    /**
      * Execute a POST request with an explicit content type (form, multipart,
      * binary, ...) and return the status code. Uses java.net.http directly:
      * RestAssured's encoder registry re-encodes or rejects raw form/multipart

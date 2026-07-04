@@ -116,3 +116,35 @@ Feature: ModSecurity Rule Generation and Testing
       | engine       |
       | coraza       |
       | modsecurity3 |
+
+  Scenario Outline: Header, cookie, required-parameter and array-count enforcement
+    Given an OpenAPI specification file at "samples/paramfeatures.yaml"
+    When I generate rules with body validation for "<engine>"
+    And I start the WAF server with the generated rules
+    When the request has header "X-Request-Id" set to "123e4567-e89b-12d3-a456-426614174000"
+    And the request has cookie "session" set to "abcdefghij1234"
+    Then a raw GET request to "/widgets?q=test" should return a 200 status code
+    When the request has cookie "session" set to "abcdefghij1234"
+    Then a raw GET request to "/widgets?q=test" should return a 403 status code
+    When the request has header "X-Request-Id" set to "not-a-uuid"
+    And the request has cookie "session" set to "abcdefghij1234"
+    Then a raw GET request to "/widgets?q=test" should return a 403 status code
+    When the request has header "X-Request-Id" set to "123e4567-e89b-12d3-a456-426614174000"
+    And the request has header "X-Unknown-Header" set to "anything at all"
+    And the request has cookie "session" set to "abcdefghij1234"
+    And the request has cookie "tracking_junk" set to "xyz"
+    Then a raw GET request to "/widgets?q=test" should return a 200 status code
+    When the request has header "X-Request-Id" set to "123e4567-e89b-12d3-a456-426614174000"
+    Then a raw GET request to "/widgets?q=test" should return a 403 status code
+    When the request has header "X-Request-Id" set to "123e4567-e89b-12d3-a456-426614174000"
+    And the request has cookie "session" set to "abcdefghij1234"
+    Then a raw GET request to "/widgets" should return a 403 status code
+    And a POST request to "/widgets" with content type "application/json" and body "{\"price\":300,\"labels\":[\"a\"]}" should return a 200 status code
+    And a POST request to "/widgets" with content type "application/json" and body "{\"price\":123,\"labels\":[\"a\"]}" should be blocked with a 403 status code
+    And a POST request to "/widgets" with content type "application/json" and body "{\"price\":300}" should be blocked with a 403 status code
+    And a POST request to "/widgets" with content type "application/json" and body "{\"price\":300,\"labels\":[\"a\",\"b\",\"c\",\"d\"]}" should be blocked with a 403 status code
+
+    Examples:
+      | engine       |
+      | coraza       |
+      | modsecurity3 |

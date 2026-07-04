@@ -13,6 +13,9 @@ SecRule REQUEST_METHOD "!@within {{httpMethod}}" "id:{{vendorExtensions.x-codege
 {{#pattern}}
 {{#isQueryParam}}
 SecRule ARGS_GET:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_6}},phase:2,block,msg:'Forbidden parameter value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{#required}}
+SecRule &ARGS_GET:{{paramName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_22}},phase:2,block,msg:'Missing required parameter {{paramName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/required}}
 {{^isArray}}
 SecRule &ARGS_GET:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_7}},phase:2,block,msg:'Multiple values for non-array parameter',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/isArray}}
@@ -31,6 +34,9 @@ SecRule ARGS_GET:{{paramName}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{^
 {{/isQueryParam}}
 {{#isFormParam}}
 SecRule ARGS_POST:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_10}},phase:2,block,msg:'Forbidden parameter value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{#required}}
+SecRule &ARGS_POST:{{paramName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_23}},phase:2,block,msg:'Missing required parameter {{paramName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/required}}
 {{^isArray}}
 SecRule &ARGS_POST:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_11}},phase:2,block,msg:'Multiple values for non-array parameter',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/isArray}}
@@ -41,6 +47,18 @@ SecRule ARGS_POST:{{paramName}} "{{#exclusiveMinimum}}@le{{/exclusiveMinimum}}{{
 SecRule ARGS_POST:{{paramName}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{^exclusiveMaximum}}@gt{{/exclusiveMaximum}} {{maximum}}" "id:{{vendorExtensions.x-codegen-globalIndex_13}},phase:2,block,msg:'Parameter value above maximum',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/maximum}}
 {{/isFormParam}}
+{{#isHeaderParam}}
+SecRule REQUEST_HEADERS:{{baseName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_18}},phase:2,block,msg:'Forbidden header value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{#required}}
+SecRule &REQUEST_HEADERS:{{baseName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_19}},phase:2,block,msg:'Missing required header {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/required}}
+{{/isHeaderParam}}
+{{#isCookieParam}}
+SecRule REQUEST_COOKIES:{{baseName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_20}},phase:2,block,msg:'Forbidden cookie value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{#required}}
+SecRule &REQUEST_COOKIES:{{baseName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_21}},phase:2,block,msg:'Missing required cookie {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/required}}
+{{/isCookieParam}}
 {{/pattern}}
 {{/allParams}}
 
@@ -81,6 +99,12 @@ SecRule ARGS:{{vendorExtensions.x-oashield-argTarget}} "{{#exclusiveMinimum}}@le
 {{#maximum}}
 SecRule ARGS:{{vendorExtensions.x-oashield-argTarget}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{^exclusiveMaximum}}@gt{{/exclusiveMaximum}} {{maximum}}" "id:{{vendorExtensions.x-codegen-propIndex_4}},phase:2,block,msg:'Property value above maximum for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/maximum}}
+{{#vendorExtensions.x-oashield-countMin}}
+SecRule &ARGS:{{vendorExtensions.x-oashield-countSelector}} "@lt {{vendorExtensions.x-oashield-countMin}}" "id:{{vendorExtensions.x-codegen-propIndex_5}},phase:2,block,msg:'Too few array elements for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/vendorExtensions.x-oashield-countMin}}
+{{#vendorExtensions.x-oashield-countMax}}
+SecRule &ARGS:{{vendorExtensions.x-oashield-countSelector}} "@gt {{vendorExtensions.x-oashield-countMax}}" "id:{{vendorExtensions.x-codegen-propIndex_6}},phase:2,block,msg:'Too many array elements for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/vendorExtensions.x-oashield-countMax}}
 {{/vendorExtensions.x-codegen-modelProperties}}
 {{/isBodyParam}}
 {{/allParams}}

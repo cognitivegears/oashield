@@ -1,0 +1,57 @@
+openapi: 3.0.3
+info:
+  title: Parameter enforcement features
+  description: header/cookie validation, required presence, multipleOf, body array counts
+  version: "1.0"
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: X-Request-Id
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Trace
+          in: header
+          schema:
+            type: string
+            pattern: '^[a-f0-9]{8}$'
+        - name: session
+          in: cookie
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9]{10,64}$'
+      responses:
+        "200":
+          description: ok
+    post:
+      operationId: createWidget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [labels]
+              properties:
+                price:
+                  type: integer
+                  multipleOf: 100
+                labels:
+                  type: array
+                  minItems: 1
+                  maxItems: 3
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: ok

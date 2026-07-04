@@ -33,6 +33,16 @@ Generator design decisions reference this file. Last run: 2026-07-04 against
 - File parts appear in `FILES_NAMES` (both engines), not in `ARGS_POST`.
 - `REQBODY_ERROR` did not fire for well-formed multipart on either engine.
 
+## Per-field enforcement limits derived from flattening
+
+- ModSecurity3 lists only **leaf** keys in ARGS (no container nodes), so
+  object-property counts (`minProperties`/`maxProperties`) and object-array
+  element counts cannot be counted reliably per-field: an object with only
+  nested-object members produces no countable key of its own. These constraints
+  are enforced via schema.json on Coraza only.
+- Array element counts (`minItems`/`maxItems`) ARE enforced per-field for
+  arrays of primitives (their indexed leaf keys are countable on both engines).
+
 ## Coraza `@validateSchema` (JSON Schema)
 
 Coraza's validator honors modern keywords regardless of the declared `$schema`

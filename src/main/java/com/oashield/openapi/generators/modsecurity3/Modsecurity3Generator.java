@@ -846,7 +846,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    * Number of trailing zeros for an integer power-of-10 multipleOf (10 -> 1,
    * 100 -> 2, ...); -1 when the value is not a power of ten >= 10.
    */
-  static int powerOfTenZeros(Number multipleOf) {
+  public static int powerOfTenZeros(Number multipleOf) {
     if (multipleOf == null) {
       return -1;
     }
@@ -1049,6 +1049,24 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       // array of primitives: actual arg keys carry an index suffix (json.items.0 / json.items.array_0)
       body.append("\\.").append(ARRAY_INDEX_REGEX);
       argsAllowlist.add(body.toString());
+      // minItems/maxItems as element-count rules. Only for arrays not nested in
+      // another array (per-element counts are ambiguous) — and this leaf form only
+      // exists for primitive-item arrays, whose indexed keys are countable on both
+      // engines (object arrays flatten to per-field leaves with no index-only key
+      // on ModSecurity3).
+      if (!indexedPath && (prop.getMinItems() != null || prop.getMaxItems() != null)) {
+        prop.vendorExtensions.put("x-oashield-countSelector", "/^" + body + "$/");
+        // minItems only for REQUIRED arrays: an absent optional array also counts
+        // 0 and there is no per-field way to distinguish absent from empty on
+        // ModSecurity3 (schema.json covers optional arrays on Coraza).
+        if (prop.getMinItems() != null && prop.required) {
+          prop.vendorExtensions.put("x-oashield-countMin", prop.getMinItems());
+        }
+        // maxItems is safe unconditionally: absent counts 0, never above the max
+        if (prop.getMaxItems() != null) {
+          prop.vendorExtensions.put("x-oashield-countMax", prop.getMaxItems());
+        }
+      }
     }
 
     // Map / free-form object: any key beneath this path is legal, so the allowlist
@@ -1089,6 +1107,11 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     String pattern = sanitizeSpecPattern(typeSource.pattern);
     if (pattern == null || pattern.isEmpty() || isInvalidPattern(pattern)) {
       pattern = patternGenerationService.getPropertyPattern(typeSource);
+    }
+    // multipleOf: power-of-10 integer multiples become a trailing-zeros pattern
+    int propZeros = powerOfTenZeros(typeSource.multipleOf);
+    if (propZeros > 0 && (typeSource.isInteger || typeSource.isLong)) {
+      pattern = "^(?:0|[0-9]{1," + (19 - propZeros) + "}0{" + propZeros + "})$";
     }
     if (typeSource.isNullable && pattern != null && !pattern.isEmpty()) {
       // JSON null flattens to a present key with an EMPTY value on both engines

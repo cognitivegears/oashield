@@ -72,12 +72,20 @@ components:
     Thing:
       type: object
       required: [id, name, nickname]
+      maxProperties: 10
       properties:
         id:
           type: integer
           readOnly: true
         name:
           type: string
+        score:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+        price:
+          type: integer
+          multipleOf: 100
         nickname:
           type: string
           nullable: true
