@@ -1,0 +1,82 @@
+openapi: 3.0.3
+info:
+  title: Media type handling
+  description: form-urlencoded, multipart, uninspectable and wildcard request bodies
+  version: "1.0"
+paths:
+  /profile:
+    post:
+      operationId: updateProfile
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                  pattern: '^[a-zA-Z ]{1,30}$'
+                age:
+                  type: integer
+      responses:
+        "200":
+          description: ok
+  /avatar:
+    post:
+      operationId: uploadAvatar
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                caption:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: ok
+  /blob:
+    post:
+      operationId: uploadBlob
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: ok
+  /anything:
+    post:
+      operationId: postAnything
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+      responses:
+        "200":
+          description: ok
+  /note:
+    post:
+      operationId: postNote
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+      responses:
+        "200":
+          description: ok

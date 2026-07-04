@@ -1,0 +1,90 @@
+openapi: 3.0.3
+info:
+  title: Phase 3 features
+  version: "1.0"
+servers:
+  - url: https://api.example.com/base/{version}
+    variables:
+      version:
+        default: v1
+paths:
+  /things/{thingId}:
+    get:
+      operationId: getThing
+      security:
+        - apiKeyQuery: []
+      parameters:
+        - name: thingId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tags
+          in: query
+          style: form
+          explode: false
+          schema:
+            type: array
+            minItems: 2
+            maxItems: 5
+            items:
+              type: string
+              pattern: '^[a-z]{1,10}$'
+        - name: ids
+          in: query
+          style: pipeDelimited
+          explode: false
+          schema:
+            type: array
+            items:
+              type: integer
+        - name: filter
+          in: query
+          style: deepObject
+          explode: true
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+      responses:
+        "200":
+          description: ok
+  /things:
+    post:
+      operationId: createThing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Thing'
+      responses:
+        "200":
+          description: ok
+components:
+  securitySchemes:
+    apiKeyQuery:
+      type: apiKey
+      in: query
+      name: api_key
+  schemas:
+    Thing:
+      type: object
+      required: [id, name, nickname]
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+        nickname:
+          type: string
+          nullable: true
+        attrs:
+          type: object
+          additionalProperties:
+            type: string
+            pattern: '^[a-z]{1,20}$'
+        misc:
+          type: object

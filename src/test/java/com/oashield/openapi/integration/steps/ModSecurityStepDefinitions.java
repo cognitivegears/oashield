@@ -156,4 +156,32 @@ public class ModSecurityStepDefinitions {
         TestActionService.assertStatusCodeWithRelaxedValidation(response, expectedStatus,
             "POST request with invalid body '" + variant + "' to " + path);
     }
+
+    @Then("a POST request to {string} with content type {string} and body {string} should return a {int} status code")
+    public void postRequestWithContentTypeShouldReturnStatusCode(String path, String contentType, String body,
+            int expectedStatus) {
+        Integer status = TestActionService.executeRawPostStatus(path, contentType, unescapeBody(body));
+        TestActionService.assertRawStatus(status, expectedStatus, "POST " + contentType + " request to " + path);
+    }
+
+    @Then("a POST request to {string} with content type {string} and body {string} should be blocked with a {int} status code")
+    public void postRequestWithContentTypeShouldBeBlocked(String path, String contentType, String body,
+            int expectedStatus) {
+        Integer status = TestActionService.executeRawPostStatus(path, contentType, unescapeBody(body));
+        TestActionService.assertRawStatus(status, expectedStatus, "POST " + contentType + " request to " + path);
+    }
+
+    @Then("a POST request to {string} with no body should return a {int} status code")
+    public void postRequestWithoutBodyShouldReturnStatusCode(String path, int expectedStatus) {
+        Integer status = TestActionService.executeRawPostStatus(path, null, null);
+        TestActionService.assertRawStatus(status, expectedStatus, "bodiless POST request to " + path);
+    }
+
+    /**
+     * Gherkin string arguments cannot carry real CRLFs; multipart bodies in the
+     * feature file write them as literal \r\n sequences.
+     */
+    private static String unescapeBody(String body) {
+        return body.replace("\\r\\n", "\r\n");
+    }
 }

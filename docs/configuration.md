@@ -18,6 +18,8 @@ the known limitations of request-body validation.
 | `denyRedirectUrl` | — | Absolute http(s) URL to redirect blocked requests to; required when `denyAction=redirect` |
 | `enableLogging` | `true` | Emit `log,auditlog` on generated rules; `false` emits `nolog` instead |
 | `includeEngineConfig` | `true` | Emit `SecRuleEngine On`, `SecRequestBodyAccess On`, and the `SecDefaultAction` in `mainconfig.conf`. Set `false` when your existing WAF configuration already defines these |
+| `unknownMediaTypePolicy` | `pass` | Handling of declared request media types the WAF cannot inspect (e.g. `application/octet-stream`, `text/plain`): `pass` lets them through after the content-type gate, `block` rejects them |
+| `basePath` | auto | Path prefix for all generated path-match rules. Defaults to the path component of the spec's first `servers.url` (server variables match one path segment). Pass an empty string to disable prefixing |
 
 Pass them comma-separated:
 

@@ -38,6 +38,38 @@ public class HttpRequestAction {
     }
 
     /**
+     * Execute a POST request with an explicit content type (form, multipart,
+     * binary, ...) and return the status code. Uses java.net.http directly:
+     * RestAssured's encoder registry re-encodes or rejects raw form/multipart
+     * string bodies, but the WAF must see the body verbatim.
+     *
+     * @param url the URL to send the POST request to
+     * @param contentType the Content-Type header value, or null to omit the header
+     * @param requestBody the raw body as String, or null for no body
+     * @return the HTTP status code
+     */
+    public static int executeRawPostRequest(String url, String contentType, String requestBody) {
+        logger.info("Executing raw POST request to URL: {} with content type: {}", url, contentType);
+        try {
+            java.net.http.HttpRequest.Builder builder = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(url))
+                    .timeout(java.time.Duration.ofSeconds(30))
+                    .POST(requestBody == null
+                            ? java.net.http.HttpRequest.BodyPublishers.noBody()
+                            : java.net.http.HttpRequest.BodyPublishers.ofString(requestBody,
+                                    java.nio.charset.StandardCharsets.UTF_8));
+            if (contentType != null) {
+                builder.header("Content-Type", contentType);
+            }
+            return java.net.http.HttpClient.newHttpClient()
+                    .send(builder.build(), java.net.http.HttpResponse.BodyHandlers.ofString())
+                    .statusCode();
+        } catch (java.io.IOException | InterruptedException e) {
+            throw new RuntimeException("Raw POST request to " + url + " failed", e);
+        }
+    }
+
+    /**
      * Execute an HTTP request with specified method.
      *
      * @param method HTTP method name, e.g., "GET", "POST"

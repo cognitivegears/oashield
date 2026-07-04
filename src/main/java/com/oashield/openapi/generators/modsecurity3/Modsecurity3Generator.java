@@ -62,6 +62,12 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     private int denyStatus = 403;
     private String denyRedirectUrl = null;
     private boolean enableLogging = true;
+    // Policy for declared media types the WAF cannot inspect (e.g.
+    // application/octet-stream): pass them through or block them.
+    private String unknownMediaTypePolicy = "pass";
+    // Deployed base path prefix for path-match regexes; null = auto-extract from
+    // the first servers.url, "" = no prefix.
+    private String basePathOverride = null;
     // false = emit no SecRuleEngine/SecRequestBodyAccess/SecDefaultAction, for
     // deployments whose existing ModSecurity config already sets them
     private boolean includeEngineConfig = true;
@@ -155,6 +161,21 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
             LOGGER.info("includeEngineConfig set to: {}", includeEngineConfig);
         }
 
+        if (additionalProperties.containsKey("unknownMediaTypePolicy")) {
+            unknownMediaTypePolicy = additionalProperties.get("unknownMediaTypePolicy").toString();
+            if (!Arrays.asList("pass", "block").contains(unknownMediaTypePolicy)) {
+                throw new IllegalArgumentException(
+                    "Unknown unknownMediaTypePolicy '" + unknownMediaTypePolicy + "'; expected 'pass' or 'block'");
+            }
+            LOGGER.info("unknownMediaTypePolicy set to: {}", unknownMediaTypePolicy);
+        }
+        additionalProperties.put("blockOtherMedia", "block".equals(unknownMediaTypePolicy));
+
+        if (additionalProperties.containsKey("basePath")) {
+            basePathOverride = additionalProperties.get("basePath").toString();
+            LOGGER.info("basePath set to: '{}'", basePathOverride);
+        }
+
         // Real boolean for the mustache section; derived strings so templates stay flat
         additionalProperties.put("includeEngineConfig", includeEngineConfig);
         additionalProperties.put("logAction", enableLogging ? "log,auditlog" : "nolog");
@@ -192,6 +213,13 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
   private static final String ENGINE_FLAVOR = "engineFlavor";
   private static final String FLAVOR_MODSECURITY3 = "modsecurity3";
   private static final String FLAVOR_CORAZA = "coraza";
+
+  // Media-type classification keys set on each consume entry (exactly one is "true")
+  static final String CONSUME_JSON = "isJson";
+  static final String CONSUME_XML = "isXml";
+  static final String CONSUME_FORM_LIKE = "isFormLike";
+  static final String CONSUME_WILDCARD = "isWildcardAll";
+  static final String CONSUME_OTHER = "isOtherMedia";
 
   // Prefix both engines use when flattening JSON bodies into ARGS
   private static final String JSON_ARGS_PREFIX = "json.";
@@ -377,6 +405,10 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     OperationMap ops = results.getOperations();
     List<CodegenOperation> opList = ops.getOperation();
 
+    // Deployed base path (servers.url path component or basePath override),
+    // prepended to every operation's path-match regex.
+    String basePathRegex = buildBasePathRegex();
+
     // $ref properties carry no vars of their own; resolve them via the model list
     Map<String, CodegenModel> modelLookup = new HashMap<String, CodegenModel>();
     if (allModels != null) {
@@ -396,26 +428,45 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       }
       LOGGER.debug("Processing operation: {}", co.operationId);
 
-      Boolean includeRequestJSON = false;
-      Boolean includeRequestXML = false;
+      boolean includeRequestJSON = false;
+      boolean includeRequestXML = false;
 
       if(co.hasConsumes) {
         LOGGER.debug("Operation: {} Consumes: {}", co.baseName, co.consumes);
-        // Check if the operation consumes JSON or XML
+        int consumeIndex = 0;
         for (Map<String, String> consume : co.consumes) {
-          if (consume.containsKey("isJson")) {
-            String isJsonString = consume.get("isJson");
-            includeRequestJSON = isJsonString != null && isJsonString.equals("true");
-          }
-          if (consume.containsKey("isXml")) {
-            String isXmlString = consume.get("isXml");
-            includeRequestXML = isXmlString != null && isXmlString.equals("true");
-          }
-          // mediaType can contain regex metacharacters (e.g. application/vnd.api+json)
           String mediaType = consume.get("mediaType");
+          // Canonical single classification key per consume entry. DefaultCodegen's
+          // isJson/isXml string flags are replaced: the string "false" is truthy in
+          // mustache sections, and unclassified media types previously fell through
+          // to an unconditional block (form/multipart operations could never succeed).
+          String classification = classifyMediaType(mediaType);
+          consume.remove("isJson");
+          consume.remove("isXml");
+          consume.put(classification, "true");
+          includeRequestJSON |= CONSUME_JSON.equals(classification);
+          includeRequestXML |= CONSUME_XML.equals(classification);
+
+          // Unique marker suffix and rule ids per consume entry: two consumes of the
+          // same class would otherwise emit duplicate SecMarker names and rule ids.
+          consume.put("consumeIndex", String.valueOf(consumeIndex++));
+          consume.put("oasGateId", String.valueOf(globalParamIndex++));
+          consume.put("oasBodyErrId", String.valueOf(globalParamIndex++));
+          consume.put("oasSchemaId", String.valueOf(globalParamIndex++));
+          consume.put("oasPassId", String.valueOf(globalParamIndex++));
+
+          // mediaType can contain regex metacharacters (e.g. application/vnd.api+json);
+          // '*' wildcards (application/*) match any token in that position
           if (mediaType != null) {
-            consume.put("mediaTypeRegex", escapeRegexLiteral(mediaType));
+            consume.put("mediaTypeRegex", escapeRegexLiteral(mediaType).replace("\\*", "[^/\\s]+"));
           }
+        }
+
+        // OAS3 requestBody.required defaults to FALSE: a bodiless request to an
+        // operation with an optional body must skip the body checks instead of
+        // being blocked by the content-type fallthrough.
+        if (!isRequestBodyRequired(co)) {
+          co.vendorExtensions.put("x-codegen-optionalBody", true);
         }
       }
 
@@ -530,10 +581,39 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
           List<CodegenProperty> paramUnion = unionMembers(param.getComposedSchemas());
           if (paramUnion != null) {
             patternString = patternGenerationService.getComposedPattern(paramUnion, param.required);
+          } else if (param.isArray && param.items != null) {
+            // array parameters validate each value against the ITEM schema (the
+            // param's own flags describe the container, not the elements)
+            String itemPattern = sanitizeSpecPattern(param.items.pattern);
+            if (itemPattern == null || itemPattern.isEmpty() || isInvalidPattern(itemPattern)) {
+              itemPattern = patternGenerationService.getPropertyPattern(param.items);
+            }
+            patternString = itemPattern;
           } else {
             patternString = getParamPattern(param);
           }
           LOGGER.debug("Calculated pattern string {}", patternString);
+        }
+        // multipleOf: power-of-10 multiples of integers are expressible as a
+        // trailing-zeros pattern; anything else is enforced via schema.json only.
+        int paramZeros = powerOfTenZeros(param.getMultipleOf());
+        if (paramZeros > 0 && !param.isArray && (param.isInteger || param.isLong)) {
+          patternString = "^(?:0|[0-9]{1," + (19 - paramZeros) + "}0{" + paramZeros + "})$";
+        }
+        // explode=false arrays arrive as ONE delimited value (CSV / space / pipe
+        // per style), so validate the joined form and suppress the per-value
+        // count rules, whose &ARGS count would always be 1.
+        if (param.isArray && !param.isExplode && (param.isQueryParam || param.isFormParam)
+            && patternString != null && !patternString.isEmpty()) {
+          patternString = buildJoinedArrayPattern(param, patternString);
+          param.vendorExtensions.put("x-codegen-joinedArray", true);
+          param.vendorExtensions.put(MODSECURITY_HAS_ARRAY_MIN, false);
+          param.vendorExtensions.put(MODSECURITY_HAS_ARRAY_MAX, false);
+        }
+        // deepObject query params serialize as name[prop]=value: allow those keys
+        // (the scalar ARGS_GET:name rules no-op on an empty collection).
+        if (param.isDeepObject && param.isQueryParam) {
+          argsAllowlist.add(escapeRegexLiteral(param.baseName) + "\\[[^\\]]{1,64}\\]");
         }
         // allowEmptyValue: an empty value is explicitly valid for this parameter
         if (param.isAllowEmptyValue && patternString != null && !patternString.isEmpty()) {
@@ -549,11 +629,23 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
 
       }
 
+      // Security-scheme parameters never appear in allParams; an apiKey in the
+      // query string must not be rejected as an unknown parameter. Header/cookie
+      // keys need no exemption (undeclared headers and cookies are not blocked).
+      if (co.authMethods != null) {
+        for (org.openapitools.codegen.CodegenSecurity auth : co.authMethods) {
+          if (Boolean.TRUE.equals(auth.isApiKey) && Boolean.TRUE.equals(auth.isKeyInQuery)
+              && auth.keyParamName != null) {
+            argsAllowlist.add(escapeRegexLiteral(auth.keyParamName));
+          }
+        }
+      }
+
       // One regex matches the route AND validates path parameter values: each {param}
       // is replaced with that parameter's validation pattern. Works on both engines,
       // unlike the Coraza-only @restpath/ARGS_PATH (issue #42). Must run after the
       // param loop so parameter patterns exist.
-      co.vendorExtensions.put(MODSECURITY_PATH_REGEX_KEY, buildPathMatchRegex(co));
+      co.vendorExtensions.put(MODSECURITY_PATH_REGEX_KEY, basePathRegex + buildPathMatchRegex(co));
       co.vendorExtensions.put(MODSECURITY_ARGS_ALLOWLIST, String.join("|", argsAllowlist));
     }
 
@@ -576,6 +668,14 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     if (depth > MAX_FLATTEN_DEPTH) {
       LOGGER.warn("Model nesting deeper than {} levels at '{}{}'; deeper properties are not validated per-field",
           MAX_FLATTEN_DEPTH, baseNamePrefix, currentProperty.baseName);
+      return properties;
+    }
+
+    // Map / free-form object: arbitrary keys are legal beneath this path, so it
+    // becomes a wildcard leaf instead of being dropped (free-form objects have no
+    // resolvable vars and previously produced nothing, blocking every key).
+    if (currentProperty.isMap || currentProperty.isFreeFormObject) {
+      properties.add(flattenedLeaf(currentProperty, baseNamePrefix));
       return properties;
     }
 
@@ -656,6 +756,61 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
   }
 
   /**
+   * Classify a request media type into the template section that handles it.
+   * JSON and XML get body validation; form-urlencoded/multipart rely on the
+   * ARGS_POST parameter rules; "*&#47;*" accepts anything; everything else is an
+   * uninspectable declared type governed by unknownMediaTypePolicy.
+   */
+  public static String classifyMediaType(String mediaType) {
+    if (mediaType == null) {
+      return CONSUME_OTHER;
+    }
+    String mt = mediaType.trim().toLowerCase(java.util.Locale.ROOT);
+    if (mt.startsWith("*/*")) {
+      return CONSUME_WILDCARD;
+    }
+    if (mt.matches("^application/(?:[a-z0-9.+-]+\\+)?json\\b.*")) {
+      return CONSUME_JSON;
+    }
+    if (mt.matches("^(?:application|text)/(?:[a-z0-9.+-]+\\+)?xml\\b.*")) {
+      return CONSUME_XML;
+    }
+    if (mt.startsWith("application/x-www-form-urlencoded") || mt.startsWith("multipart/")) {
+      return CONSUME_FORM_LIKE;
+    }
+    return CONSUME_OTHER;
+  }
+
+  /**
+   * Resolve the raw spec requestBody.required for an operation. CodegenOperation
+   * does not expose it for form-param operations (their body param is dissolved
+   * into formParams), so read it from the parsed OpenAPI document.
+   */
+  private boolean isRequestBodyRequired(CodegenOperation co) {
+    if (this.openAPI == null || this.openAPI.getPaths() == null) {
+      return false;
+    }
+    io.swagger.v3.oas.models.PathItem pathItem = this.openAPI.getPaths().get(co.path);
+    if (pathItem == null) {
+      return false;
+    }
+    io.swagger.v3.oas.models.Operation rawOp;
+    try {
+      rawOp = pathItem.readOperationsMap()
+          .get(io.swagger.v3.oas.models.PathItem.HttpMethod
+              .valueOf(co.httpMethod.toUpperCase(java.util.Locale.ROOT)));
+    } catch (IllegalArgumentException e) {
+      return false;
+    }
+    if (rawOp == null || rawOp.getRequestBody() == null) {
+      return false;
+    }
+    io.swagger.v3.oas.models.parameters.RequestBody body =
+        org.openapitools.codegen.utils.ModelUtils.getReferencedRequestBody(this.openAPI, rawOp.getRequestBody());
+    return body != null && Boolean.TRUE.equals(body.getRequired());
+  }
+
+  /**
    * Collect the oneOf/anyOf members of a composed schema. Both keywords get the
    * same WAF treatment (a value passing any member is allowed), so they are merged.
    * Returns null when the schema is not a oneOf/anyOf composition.
@@ -685,6 +840,28 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     }
     CodegenModel model = modelLookup.get(prop.complexType);
     return model != null ? model.vars : null;
+  }
+
+  /**
+   * Number of trailing zeros for an integer power-of-10 multipleOf (10 -> 1,
+   * 100 -> 2, ...); -1 when the value is not a power of ten >= 10.
+   */
+  static int powerOfTenZeros(Number multipleOf) {
+    if (multipleOf == null) {
+      return -1;
+    }
+    java.math.BigDecimal value;
+    try {
+      value = new java.math.BigDecimal(multipleOf.toString()).stripTrailingZeros();
+    } catch (NumberFormatException e) {
+      return -1;
+    }
+    // a power of ten >= 10 strips to unscaled value 1 with negative scale
+    if (java.math.BigDecimal.ONE.compareTo(new java.math.BigDecimal(value.unscaledValue())) != 0
+        || value.scale() >= 0) {
+      return -1;
+    }
+    return -value.scale();
   }
 
   /**
@@ -728,12 +905,13 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    * Build the operation's path-match regex: literal segments are regex-escaped and
    * each {param} placeholder is replaced with that path parameter's validation
    * pattern (anchors stripped). Unknown parameters fall back to a single segment.
+   * matrix/label style path params include their style prefix in the match.
    */
   String buildPathMatchRegex(CodegenOperation co) {
-    Map<String, String> paramPatterns = new HashMap<String, String>();
+    Map<String, CodegenParameter> pathParams = new HashMap<String, CodegenParameter>();
     for (CodegenParameter param : co.allParams) {
-      if (param.isPathParam && param.pattern != null && !param.pattern.isEmpty()) {
-        paramPatterns.put(param.baseName, param.pattern);
+      if (param.isPathParam) {
+        pathParams.put(param.baseName, param);
       }
     }
 
@@ -742,15 +920,90 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     int last = 0;
     while (m.find()) {
       regex.append(escapeRegexLiteral(co.path.substring(last, m.start())));
-      String pattern = paramPatterns.get(m.group(1));
-      if (pattern != null) {
-        regex.append("(?:").append(stripAnchors(pattern)).append(")");
+      CodegenParameter param = pathParams.get(m.group(1));
+      String core;
+      if (param != null && param.pattern != null && !param.pattern.isEmpty()) {
+        core = "(?:" + stripAnchors(param.pattern) + ")";
       } else {
-        regex.append("[^/]+");
+        core = "[^/]+";
       }
+      if (param != null && "matrix".equals(param.style)) {
+        core = ";" + escapeRegexLiteral(m.group(1)) + "=" + core;
+      } else if (param != null && "label".equals(param.style)) {
+        core = "\\." + core;
+      }
+      regex.append(core);
       last = m.end();
     }
     regex.append(escapeRegexLiteral(co.path.substring(last)));
+    return regex.toString();
+  }
+
+  /**
+   * Joined (explode=false) array parameter pattern: the whole delimited list in a
+   * single value, item repetitions bounded by minItems/maxItems.
+   */
+  String buildJoinedArrayPattern(CodegenParameter param, String itemPattern) {
+    String sep = ",";
+    if ("spaceDelimited".equals(param.style)) {
+      sep = " ";
+    } else if ("pipeDelimited".equals(param.style)) {
+      sep = "\\|";
+    }
+    String item = "(?:" + stripAnchors(itemPattern) + ")";
+    int lo = param.getMinItems() != null && param.getMinItems() > 0 ? param.getMinItems() - 1 : 0;
+    // ponytail: 999-item ceiling keeps the quantifier bounded (ReDoS hygiene)
+    String hi = param.getMaxItems() != null && param.getMaxItems() > 0
+        ? String.valueOf(param.getMaxItems() - 1)
+        : "999";
+    return "^" + item + "(?:" + sep + item + "){" + lo + "," + hi + "}$";
+  }
+
+  /**
+   * Regex prefix for the deployed base path: the basePath CLI option when set
+   * (empty string disables prefixing), otherwise the path component of the first
+   * servers.url. Server-URL template variables match one path segment.
+   */
+  String buildBasePathRegex() {
+    String path = basePathOverride;
+    if (path == null && this.openAPI != null && this.openAPI.getServers() != null
+        && !this.openAPI.getServers().isEmpty()) {
+      String url = this.openAPI.getServers().get(0).getUrl();
+      if (url != null) {
+        if (url.startsWith("/")) {
+          path = url;
+        } else {
+          try {
+            // {variables} are not URI-legal; neutralize for parsing, then restore
+            String parsed = java.net.URI.create(url.replace("{", "%7B").replace("}", "%7D")).getPath();
+            path = parsed != null ? parsed.replace("%7B", "{").replace("%7D", "}") : null;
+          } catch (IllegalArgumentException e) {
+            LOGGER.warn("Cannot parse server URL '{}'; no base path prefix applied", url);
+          }
+        }
+      }
+    }
+    if (path == null) {
+      return "";
+    }
+    path = path.trim();
+    while (path.endsWith("/")) {
+      path = path.substring(0, path.length() - 1);
+    }
+    if (path.isEmpty()) {
+      return "";
+    }
+    if (!path.startsWith("/")) {
+      path = "/" + path;
+    }
+    StringBuilder regex = new StringBuilder();
+    java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\{[^/{}]+\\}").matcher(path);
+    int last = 0;
+    while (m.find()) {
+      regex.append(escapeRegexLiteral(path.substring(last, m.start()))).append("[^/]+");
+      last = m.end();
+    }
+    regex.append(escapeRegexLiteral(path.substring(last)));
     return regex.toString();
   }
 
@@ -798,6 +1051,30 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       argsAllowlist.add(body.toString());
     }
 
+    // Map / free-form object: any key beneath this path is legal, so the allowlist
+    // gets a bounded wildcard subtree. Values are validated only for maps with a
+    // primitive value schema; deeper structures are covered by the wildcard alone.
+    if (prop.isMap || prop.isFreeFormObject) {
+      argsAllowlist.add(body + "\\..{1,256}");
+      CodegenProperty valueSchema = prop.items;
+      if (prop.isMap && valueSchema != null
+          && !valueSchema.isModel && !valueSchema.isMap && !valueSchema.isArray
+          && !valueSchema.isFreeFormObject) {
+        prop.vendorExtensions.put("x-oashield-argTarget", "/^" + body + "\\.[^.]{1,64}$/");
+        String valuePattern = sanitizeSpecPattern(valueSchema.pattern);
+        if (valuePattern == null || valuePattern.isEmpty() || isInvalidPattern(valuePattern)) {
+          valuePattern = patternGenerationService.getPropertyPattern(valueSchema);
+        }
+        prop.vendorExtensions.put("x-oashield-pattern", valuePattern);
+      }
+      // No required-presence rule: an empty map produces no ARGS keys on
+      // ModSecurity3, making {} indistinguishable from an absent property.
+      for (int i = 1; i <= PROP_INDEX_MAX; i++) {
+        prop.vendorExtensions.put(PROP_INDEX_KEY + "_" + i, globalParamIndex++);
+      }
+      return;
+    }
+
     prop.vendorExtensions.put("x-oashield-argTarget", indexed ? "/^" + body + "$/" : path);
 
     // Type pattern: for arrays validate each element against the item type
@@ -813,12 +1090,18 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     if (pattern == null || pattern.isEmpty() || isInvalidPattern(pattern)) {
       pattern = patternGenerationService.getPropertyPattern(typeSource);
     }
+    if (typeSource.isNullable && pattern != null && !pattern.isEmpty()) {
+      // JSON null flattens to a present key with an EMPTY value on both engines
+      // (docs/engine-behavior.md), so nullable values must accept empty.
+      pattern = "^(?:" + stripAnchors(pattern) + ")?$";
+    }
     prop.vendorExtensions.put("x-oashield-pattern", pattern);
 
     // Required-presence rules only for non-array paths: per-element "required" has no
     // meaningful &-count form. Nested required properties are guarded on their parent
     // being present (JSON Schema semantics: required applies only within its object).
-    if (prop.required && !indexed) {
+    // readOnly properties may legally be omitted from requests even when required.
+    if (prop.required && !indexed && !prop.isReadOnly) {
       prop.vendorExtensions.put("x-oashield-requiredRule", true);
       String parent = path.substring(0, path.lastIndexOf('.') + 1);
       if (!parent.equals(JSON_ARGS_PREFIX)) {
@@ -1047,6 +1330,14 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
         "Emit SecRuleEngine/SecRequestBodyAccess/SecDefaultAction in mainconfig.conf; "
             + "set false when your existing WAF configuration already defines them")
         .defaultValue(Boolean.toString(includeEngineConfig)));
+    additionalProperties.put("blockOtherMedia", false);
+    cliOptions.add(new CliOption("unknownMediaTypePolicy",
+        "Handling of declared request media types the WAF cannot inspect "
+            + "(e.g. application/octet-stream, text/plain): 'pass' or 'block'")
+        .defaultValue(unknownMediaTypePolicy));
+    cliOptions.add(new CliOption("basePath",
+        "Base path prefix for all generated path-match rules; defaults to the path "
+            + "component of the first servers.url, use an empty string to disable"));
 
     /**
      * Supporting Files. You can write single files for the generator with the

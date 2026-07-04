@@ -88,6 +88,36 @@ public final class TestActionService {
     }
 
     /**
+     * Execute POST request with an explicit content type (raw body, no client-side
+     * re-encoding) to given path and return the status code.
+     *
+     * @param path        endpoint path or full URL
+     * @param contentType Content-Type header value, or null to omit
+     * @param requestBody raw body as String, or null for no body
+     * @return status code, or null if skipped via skip.http.calls
+     */
+    public static Integer executeRawPostStatus(String path, String contentType, String requestBody) {
+        if (configService.isHttpCallsSkipped()) {
+            logger.info("Skipping raw POST request to {} due to skip.http.calls", path);
+            return null;
+        }
+        return HttpRequestAction.executeRawPostRequest(buildUrl(path), contentType, requestBody);
+    }
+
+    /**
+     * Assert a raw-request status code; a null actual status means the request was
+     * skipped (skip.http.calls) and the assertion is a no-op.
+     */
+    public static void assertRawStatus(Integer actual, int expected, String context) {
+        if (actual == null) {
+            return;
+        }
+        if (actual != expected) {
+            throw new AssertionError(context + ": expected status " + expected + " but got " + actual);
+        }
+    }
+
+    /**
      * Execute HTTP request with specified method to given path.
      *
      * @param method HTTP method name
