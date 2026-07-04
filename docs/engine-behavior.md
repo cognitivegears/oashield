@@ -46,10 +46,21 @@ Generator design decisions reference this file. Last run: 2026-07-04 against
 ## Coraza `@validateSchema` (JSON Schema)
 
 Coraza's validator honors modern keywords regardless of the declared `$schema`
-draft. Verified enforced: `const`, `dependentRequired`, `if`/`then`/`else`
-(under draft-07 *and* 2020-12), `prefixItems` (2020-12). Verified **ignored**:
-legacy draft-07 `dependencies` — always emit `dependentRequired`, never
-`dependencies`.
+draft. Verified enforced under a draft-07 `$schema`: `const`,
+`dependentRequired`, `if`/`then`/`else`, `prefixItems`, `patternProperties`,
+`propertyNames`. Verified **ignored**: legacy draft-07 `dependencies` — always
+emit `dependentRequired`, never `dependencies`. schema.json therefore stays
+draft-07 with modern keywords copied verbatim from the raw spec.
+
+Note: openapi-generator's normalizer rewrites the parsed spec in place (it
+drops 3.1 `prefixItems`, among others), so raw keyword lookups re-parse the
+original document (`Modsecurity3Generator.rawOpenAPI()`).
+
+Per-field (SecRule) coverage of the long tail: `const` → exact-match value
+rule; `dependentRequired` (body root) → chained presence rules;
+`patternProperties` → name-scoped allowlist entries + typed value rules.
+`prefixItems`, `contains`, `if`/`then`/`else`, `propertyNames`,
+`unevaluatedProperties` are schema.json-only (Coraza).
 
 ModSecurity3 has no JSON `@validateSchema` (XSD only), which is why the
 modsecurity3 flavor relies on per-field rules.

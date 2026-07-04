@@ -537,6 +537,56 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
             }
           }
 
+          // Raw-spec keyword pass: const and patternProperties are not surfaced by
+          // the codegen abstractions, so resolve them from the parsed spec schema
+          // along each flattened path.
+          io.swagger.v3.oas.models.media.Schema<?> rawRoot = rawSchemaByName(param.baseType);
+          if (rawRoot == null) {
+            rawRoot = rawSchemaByName(param.dataType);
+          }
+          if (rawRoot != null) {
+            for (CodegenProperty prop : flattenedProperties) {
+              io.swagger.v3.oas.models.media.Schema<?> rawProp = rawSchemaForPath(rawRoot, prop.baseName);
+              if (rawProp == null) {
+                continue;
+              }
+              if (rawProp.getConst() != null) {
+                prop.pattern = "^" + escapeRegexLiteral(String.valueOf(rawProp.getConst())) + "$";
+                // const admits exactly one value — never null, even when codegen
+                // inferred nullability from a type-less schema
+                prop.isNullable = false;
+              }
+              if (rawProp.getPatternProperties() != null && (prop.isMap || prop.isFreeFormObject)) {
+                List<Map<String, Object>> ppRules = new ArrayList<Map<String, Object>>();
+                for (Map.Entry<String, io.swagger.v3.oas.models.media.Schema> pp
+                    : rawProp.getPatternProperties().entrySet()) {
+                  Map<String, Object> rule = new HashMap<String, Object>();
+                  rule.put("nameRegex", patternPropertiesNameRegex(pp.getKey()));
+                  rule.put("valuePattern", rawValuePattern(pp.getValue()));
+                  ppRules.add(rule);
+                }
+                prop.vendorExtensions.put("x-oashield-patternProps", ppRules);
+              }
+            }
+
+            // dependentRequired at the body root: presence of the trigger property
+            // demands the dependent property (chained count rules on both engines)
+            io.swagger.v3.oas.models.media.Schema<?> resolvedRoot = resolveRawRef(rawRoot);
+            if (resolvedRoot.getDependentRequired() != null) {
+              List<Map<String, Object>> depRules = new ArrayList<Map<String, Object>>();
+              for (Map.Entry<String, List<String>> dep : resolvedRoot.getDependentRequired().entrySet()) {
+                for (String requiredName : dep.getValue()) {
+                  Map<String, Object> rule = new HashMap<String, Object>();
+                  rule.put("trigger", JSON_ARGS_PREFIX + dep.getKey());
+                  rule.put("dependent", JSON_ARGS_PREFIX + requiredName);
+                  rule.put("depRuleId", globalParamIndex++);
+                  depRules.add(rule);
+                }
+              }
+              param.vendorExtensions.put("x-oashield-dependentRules", depRules);
+            }
+          }
+
           for (CodegenProperty prop : flattenedProperties) {
             decorateBodyProperty(prop, argsAllowlist);
           }
@@ -612,6 +662,14 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
             patternString = getParamPattern(param);
           }
           LOGGER.debug("Calculated pattern string {}", patternString);
+        }
+        // content: parameter — the value is an encoded document (e.g. JSON in a
+        // query string) that the engines do not parse per-field; cap its length
+        // and rely on the allowlist entry for the name.
+        if (param.getContent() != null && !param.getContent().isEmpty() && !param.isBodyParam) {
+          // RE2 (Coraza) rejects repeat counts above 1000, so the cap is clamped
+          int cap = Math.min(param.getMaxLength() != null ? param.getMaxLength() : 1000, 1000);
+          patternString = "^[\\s\\S]{0," + cap + "}$";
         }
         // multipleOf: power-of-10 multiples of integers are expressible as a
         // trailing-zeros pattern; anything else is enforced via schema.json only.
@@ -772,6 +830,112 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     LOGGER.debug("Adding property: {}", currentProperty.baseName);
     properties.add(flattenedLeaf(currentProperty, baseNamePrefix));
     return properties;
+  }
+
+  // Un-normalized spec parse, lazily created: openapi-generator's normalizer
+  // rewrites this.openAPI in place (e.g. it drops 3.1 prefixItems), so raw
+  // keyword lookups re-read the original document.
+  private io.swagger.v3.oas.models.OpenAPI rawOpenAPI;
+
+  private io.swagger.v3.oas.models.OpenAPI rawOpenAPI() {
+    if (rawOpenAPI == null) {
+      String spec = getInputSpec();
+      if (spec != null && !spec.isEmpty()) {
+        try {
+          io.swagger.v3.parser.core.models.ParseOptions options =
+              new io.swagger.v3.parser.core.models.ParseOptions();
+          options.setResolve(true);
+          io.swagger.v3.parser.core.models.SwaggerParseResult result =
+              new io.swagger.v3.parser.OpenAPIV3Parser().readLocation(spec, null, options);
+          rawOpenAPI = result != null ? result.getOpenAPI() : null;
+        } catch (Exception e) {
+          LOGGER.warn("Could not re-parse spec '{}' for raw keyword lookups: {}", spec, e.getMessage());
+        }
+      }
+      if (rawOpenAPI == null) {
+        rawOpenAPI = this.openAPI;
+      }
+    }
+    return rawOpenAPI;
+  }
+
+  /**
+   * Look up a raw parsed spec schema by component name (null-safe).
+   */
+  io.swagger.v3.oas.models.media.Schema<?> rawSchemaByName(String name) {
+    io.swagger.v3.oas.models.OpenAPI raw = name != null ? rawOpenAPI() : null;
+    if (raw == null || raw.getComponents() == null || raw.getComponents().getSchemas() == null) {
+      return null;
+    }
+    return raw.getComponents().getSchemas().get(name);
+  }
+
+  private io.swagger.v3.oas.models.media.Schema<?> resolveRawRef(io.swagger.v3.oas.models.media.Schema<?> schema) {
+    if (schema != null && schema.get$ref() != null) {
+      String ref = schema.get$ref();
+      io.swagger.v3.oas.models.media.Schema<?> resolved =
+          rawSchemaByName(ref.substring(ref.lastIndexOf('/') + 1));
+      return resolved != null ? resolved : schema;
+    }
+    return schema;
+  }
+
+  /**
+   * Walk a raw spec schema along a flattened body path ("json.tags.0.name") to
+   * the schema of that leaf; "0" segments descend into array items. Returns null
+   * when the path cannot be resolved.
+   */
+  io.swagger.v3.oas.models.media.Schema<?> rawSchemaForPath(
+      io.swagger.v3.oas.models.media.Schema<?> root, String flatPath) {
+    io.swagger.v3.oas.models.media.Schema<?> current = resolveRawRef(root);
+    String[] segments = flatPath.split("\\.");
+    for (int i = 1; i < segments.length && current != null; i++) { // segment 0 is the "json" prefix
+      if ("0".equals(segments[i])) {
+        current = resolveRawRef(current.getItems());
+      } else {
+        Map<String, io.swagger.v3.oas.models.media.Schema> props = current.getProperties();
+        current = props != null ? resolveRawRef(props.get(segments[i])) : null;
+      }
+    }
+    return current;
+  }
+
+  /**
+   * Convert a patternProperties NAME regex into the fragment matching that name
+   * inside a flattened ARGS key (unanchored ends admit surrounding characters).
+   */
+  static String patternPropertiesNameRegex(String namePattern) {
+    return (namePattern.startsWith("^") ? "" : "[^.]*")
+        + stripAnchors(namePattern)
+        + (namePattern.endsWith("$") && !namePattern.endsWith("\\$") ? "" : "[^.]*");
+  }
+
+  /**
+   * Value pattern for a raw patternProperties value schema (primitive types only;
+   * anything structured is admitted by name and validated via schema.json).
+   */
+  String rawValuePattern(io.swagger.v3.oas.models.media.Schema<?> valueSchema) {
+    io.swagger.v3.oas.models.media.Schema<?> schema = resolveRawRef(valueSchema);
+    if (schema == null) {
+      return "^.*$";
+    }
+    if (schema.getPattern() != null && !isInvalidPattern(schema.getPattern())) {
+      return schema.getPattern();
+    }
+    String type = schema.getType();
+    if (type == null && schema.getTypes() != null && !schema.getTypes().isEmpty()) {
+      type = schema.getTypes().iterator().next();
+    }
+    if ("integer".equals(type)) {
+      return "^-?[0-9]{1,19}$";
+    }
+    if ("number".equals(type)) {
+      return "^-?([0-9]{1,15}(\\.[0-9]{1,15})?|\\.[0-9]{1,15})$";
+    }
+    if ("boolean".equals(type)) {
+      return "^(true|false)$";
+    }
+    return "^.*$";
   }
 
   /**
@@ -1092,6 +1256,23 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     // gets a bounded wildcard subtree. Values are validated only for maps with a
     // primitive value schema; deeper structures are covered by the wildcard alone.
     if (prop.isMap || prop.isFreeFormObject) {
+      @SuppressWarnings("unchecked")
+      List<Map<String, Object>> ppRules =
+          (List<Map<String, Object>>) prop.vendorExtensions.get("x-oashield-patternProps");
+      if (ppRules != null) {
+        // patternProperties: only keys matching a declared name pattern are
+        // admitted (no broad wildcard) and their values are validated per entry
+        for (Map<String, Object> rule : ppRules) {
+          String nameRegex = (String) rule.get("nameRegex");
+          argsAllowlist.add(body + "\\." + nameRegex);
+          rule.put("selector", "/^" + body + "\\." + nameRegex + "$/");
+          rule.put("ruleId", globalParamIndex++);
+        }
+        for (int i = 1; i <= PROP_INDEX_MAX; i++) {
+          prop.vendorExtensions.put(PROP_INDEX_KEY + "_" + i, globalParamIndex++);
+        }
+        return;
+      }
       argsAllowlist.add(body + "\\..{1,256}");
       CodegenProperty valueSchema = prop.items;
       if (prop.isMap && valueSchema != null
@@ -1270,8 +1451,13 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
         ModelMap modelMap = modelsMap.getModels().get(0);
         CodegenModel model = modelMap.getModel();
 
-        // Process the model and add it to the definitions
-        ObjectNode modelSchema = generator.generateModelSchema(model);
+        // Process the model and add it to the definitions, enriched with the raw
+        // spec keywords the codegen abstractions do not surface
+        io.swagger.v3.oas.models.media.Schema<?> rawSchema = rawSchemaByName(model.name);
+        if (rawSchema == null) {
+          rawSchema = rawSchemaByName(modelName);
+        }
+        ObjectNode modelSchema = generator.generateModelSchema(model, rawSchema);
         if (modelSchema != null) {
           definitions.set(modelName, modelSchema);
         }

@@ -80,11 +80,18 @@ SecRule REQBODY_ERROR "!@eq 0" "id:{{oasBodyErrId}},phase:2,block,msg:'Failed to
 {{#vendorExtensions.validateBodySchema}}
 {{#allParams}}
 {{#isBodyParam}}
+{{#vendorExtensions.x-oashield-dependentRules}}
+SecRule &ARGS:{{trigger}} "@gt 0" "id:{{depRuleId}},phase:2,block,msg:'Property {{trigger}} requires {{dependent}}',{{logAction}},skipAfter:FAILED_API_CHECKS,chain"
+SecRule &ARGS:{{dependent}} "@eq 0" "t:none"
+{{/vendorExtensions.x-oashield-dependentRules}}
 {{#vendorExtensions.x-codegen-modelProperties}}
+{{#vendorExtensions.x-oashield-patternProps}}
+SecRule ARGS:{{selector}} "!@rx {{valuePattern}}" "id:{{ruleId}},phase:2,block,msg:'Invalid value for patternProperties key under {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/vendorExtensions.x-oashield-patternProps}}
 {{#vendorExtensions.x-oashield-requiredRule}}
 {{#vendorExtensions.x-oashield-parentSelector}}
 SecRule &ARGS:{{vendorExtensions.x-oashield-parentSelector}} "@gt 0" "id:{{vendorExtensions.x-codegen-propIndex_1}},phase:2,block,msg:'Missing required property {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS,chain"
-SecRule &ARGS:{{vendorExtensions.x-oashield-argTarget}} "@eq 0"
+SecRule &ARGS:{{vendorExtensions.x-oashield-argTarget}} "@eq 0" "t:none"
 {{/vendorExtensions.x-oashield-parentSelector}}
 {{^vendorExtensions.x-oashield-parentSelector}}
 SecRule &ARGS:{{vendorExtensions.x-oashield-argTarget}} "@eq 0" "id:{{vendorExtensions.x-codegen-propIndex_1}},phase:2,block,msg:'Missing required property {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"

@@ -1,0 +1,61 @@
+{
+  "$schema" : "http://json-schema.org/draft-07/schema#",
+  "title" : "OpenAPI Schema Definitions",
+  "description" : "JSON Schema definitions generated from OpenAPI specification",
+  "type" : "object",
+  "definitions" : {
+    "Event" : {
+      "title" : "Event",
+      "type" : "object",
+      "properties" : {
+        "kind" : {
+          "type" : [ "string", "null" ],
+          "const" : "reminder"
+        },
+        "start" : {
+          "type" : "string"
+        },
+        "end" : {
+          "type" : "string"
+        },
+        "window" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/AnyType"
+          },
+          "prefixItems" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "integer"
+          } ]
+        },
+        "labels" : {
+          "type" : "object",
+          "additionalProperties" : true,
+          "patternProperties" : {
+            "^x-" : {
+              "type" : "integer"
+            }
+          }
+        },
+        "note" : {
+          "type" : [ "string", "null" ]
+        }
+      },
+      "required" : [ "kind" ],
+      "dependentRequired" : {
+        "end" : [ "start" ]
+      },
+      "if" : {
+        "properties" : {
+          "kind" : {
+            "const" : "reminder"
+          }
+        }
+      },
+      "then" : {
+        "required" : [ "start" ]
+      }
+    }
+  }
+}

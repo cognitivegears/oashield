@@ -14,6 +14,7 @@ import org.openapitools.codegen.model.ModelsMap;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Utility class for generating JSON Schema documents from OpenAPI models.
@@ -135,6 +136,79 @@ public class JsonSchemaGenerator {
             log.error("Error processing model: {}", model.name, e);
             return null;
         }
+    }
+
+    // JSON Schema keywords openapi-generator's Codegen abstractions do not surface;
+    // copied verbatim from the raw parsed spec schema. Coraza's validator enforces
+    // all of them even under a draft-07 $schema (docs/engine-behavior.md).
+    private static final String[] RAW_KEYWORDS = {
+            "const", "prefixItems", "patternProperties", "dependentRequired", "dependentSchemas",
+            "if", "then", "else", "contains", "minContains", "maxContains", "propertyNames" };
+
+    /**
+     * Generate a model schema and enrich it (root and per-property) with the
+     * long-tail keywords from the raw spec schema.
+     *
+     * @param model the codegen model
+     * @param rawSchema the raw parsed spec schema for this model, may be null
+     * @return the enriched schema node
+     */
+    public ObjectNode generateModelSchema(CodegenModel model,
+            io.swagger.v3.oas.models.media.Schema<?> rawSchema) {
+        ObjectNode schemaNode = generateModelSchema(model);
+        if (schemaNode != null && rawSchema != null) {
+            enrichWithRawKeywords(schemaNode, rawSchema);
+        }
+        return schemaNode;
+    }
+
+    private void enrichWithRawKeywords(ObjectNode schemaNode,
+            io.swagger.v3.oas.models.media.Schema<?> rawSchema) {
+        try {
+            JsonNode raw = io.swagger.v3.core.util.Json31.mapper().valueToTree(rawSchema);
+            copyRawKeywords(raw, schemaNode);
+            JsonNode rawProps = raw.path("properties");
+            JsonNode outProps = schemaNode.path("properties");
+            if (rawProps.isObject() && outProps.isObject()) {
+                java.util.Iterator<Map.Entry<String, JsonNode>> it = rawProps.fields();
+                while (it.hasNext()) {
+                    Map.Entry<String, JsonNode> entry = it.next();
+                    JsonNode target = outProps.get(entry.getKey());
+                    if (target instanceof ObjectNode) {
+                        copyRawKeywords(entry.getValue(), (ObjectNode) target);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not enrich schema with raw spec keywords: {}", e.getMessage());
+        }
+    }
+
+    private void copyRawKeywords(JsonNode raw, ObjectNode target) {
+        for (String keyword : RAW_KEYWORDS) {
+            JsonNode value = raw.get(keyword);
+            if (value != null && !value.isNull()) {
+                target.set(keyword, rewriteRefs(value.deepCopy()));
+            }
+        }
+    }
+
+    /**
+     * Copied subschemas reference "#/components/schemas/X"; the emitted document
+     * keys models under "#/definitions/X".
+     */
+    private JsonNode rewriteRefs(JsonNode node) {
+        if (node instanceof ObjectNode) {
+            ObjectNode obj = (ObjectNode) node;
+            JsonNode ref = obj.get("$ref");
+            if (ref != null && ref.isTextual() && ref.asText().startsWith("#/components/schemas/")) {
+                obj.put("$ref", "#/definitions/" + ref.asText().substring("#/components/schemas/".length()));
+            }
+            obj.forEach(this::rewriteRefs);
+        } else if (node.isArray()) {
+            node.forEach(this::rewriteRefs);
+        }
+        return node;
     }
 
     /**

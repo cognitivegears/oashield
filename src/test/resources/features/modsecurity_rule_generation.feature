@@ -148,3 +148,21 @@ Feature: ModSecurity Rule Generation and Testing
       | engine       |
       | coraza       |
       | modsecurity3 |
+
+  Scenario Outline: OpenAPI 3.1 const, dependentRequired, patternProperties and nullable
+    Given an OpenAPI specification file at "samples/oas31.yaml"
+    When I generate rules with body validation for "<engine>"
+    And I start the WAF server with the generated rules
+    Then a POST request to "/events" with content type "application/json" and body "{\"kind\":\"reminder\",\"start\":\"now\"}" should return a 200 status code
+    And a POST request to "/events" with content type "application/json" and body "{\"kind\":\"other\",\"start\":\"now\"}" should be blocked with a 403 status code
+    And a POST request to "/events" with content type "application/json" and body "{\"kind\":\"reminder\",\"start\":\"now\",\"end\":\"later\"}" should return a 200 status code
+    And a POST request to "/events" with content type "application/json" and body "{\"kind\":\"reminder\",\"end\":\"later\"}" should be blocked with a 403 status code
+    And a POST request to "/events" with content type "application/json" and body "{\"kind\":\"reminder\",\"start\":\"now\",\"labels\":{\"x-a\":5}}" should return a 200 status code
+    And a POST request to "/events" with content type "application/json" and body "{\"kind\":\"reminder\",\"start\":\"now\",\"labels\":{\"x-a\":\"notanumber\"}}" should be blocked with a 403 status code
+    And a POST request to "/events" with content type "application/json" and body "{\"kind\":\"reminder\",\"start\":\"now\",\"labels\":{\"unrelated\":5}}" should be blocked with a 403 status code
+    And a POST request to "/events" with content type "application/json" and body "{\"kind\":\"reminder\",\"start\":\"now\",\"note\":null}" should return a 200 status code
+
+    Examples:
+      | engine       |
+      | coraza       |
+      | modsecurity3 |
