@@ -1,11 +1,13 @@
 # This is the main configuration file that will include the other configurations
 
+{{#includeEngineConfig}}
 # Enable disruption actions
 SecRuleEngine On
 SecRequestBodyAccess On
 
-# Enable the default block action to return a 403
-SecDefaultAction "phase:2,log,auditlog,deny,status:403"
+# Default action applied when a rule blocks
+SecDefaultAction "phase:2,{{logAction}},{{{denyActionDirective}}}"
+{{/includeEngineConfig}}
 
 # Select body processors in phase 1: body parsing happens between phases 1 and 2,
 # so a phase-2 ctl would be a no-op and JSON/XML bodies would never reach ARGS.
@@ -21,4 +23,4 @@ Include {{classFilename}}.conf
 
 # For anything else, deny by default
 SecMarker FAILED_API_CHECKS
-SecAction "id:4220001,log,auditlog,block,phase:2,msg:'Unknown API endpoint'"
+SecAction "id:4220001,{{logAction}},block,phase:2,msg:'Unknown API endpoint'"
