@@ -151,18 +151,37 @@ public class JsonSchemaGenerator {
         if (member.dataFormat != null && !member.dataFormat.isEmpty()) {
             node.put("format", member.dataFormat);
         }
-        if (member.allowableValues != null && member.allowableValues.containsKey("values")) {
-            @SuppressWarnings("unchecked")
-            List<String> enumValues = (List<String>) member.allowableValues.get("values");
-            if (enumValues != null && !enumValues.isEmpty()) {
-                ArrayNode enumNode = node.putArray("enum");
-                for (String value : enumValues) {
-                    enumNode.add(value);
-                }
-            }
-        }
+        addEnumValues(member, node);
         processValidationConstraints(member, node);
         return node;
+    }
+
+    /**
+     * Emit enum values with their JSON types preserved: an integer enum must appear
+     * as [1, 2] in the schema, not ["1", "2"], or valid numeric values get rejected.
+     */
+    private void addEnumValues(CodegenProperty var, ObjectNode node) {
+        if (var.allowableValues == null || !(var.allowableValues.get("values") instanceof List)) {
+            return;
+        }
+        List<?> enumValues = (List<?>) var.allowableValues.get("values");
+        if (enumValues.isEmpty()) {
+            return;
+        }
+        ArrayNode enumNode = node.putArray("enum");
+        for (Object value : enumValues) {
+            if (value instanceof Integer) {
+                enumNode.add((Integer) value);
+            } else if (value instanceof Long) {
+                enumNode.add((Long) value);
+            } else if (value instanceof Number) {
+                enumNode.add(new java.math.BigDecimal(value.toString()));
+            } else if (value instanceof Boolean) {
+                enumNode.add((Boolean) value);
+            } else {
+                enumNode.add(String.valueOf(value));
+            }
+        }
     }
 
     /**
@@ -200,15 +219,6 @@ public class JsonSchemaGenerator {
             String name = var.name;
             ObjectNode property = properties.putObject(name);
 
-            // Special case for photoUrls in Pet model which is an array of strings
-            if (name.equals("photoUrls")) {
-                log.debug("Special handling for photoUrls property");
-                property.put("type", "array");
-                ObjectNode items = property.putObject("items");
-                items.put("type", "string");
-                continue;
-            }
-
             // Set property type
             setPropertyType(var, property);
 
@@ -230,8 +240,12 @@ public class JsonSchemaGenerator {
                 String complexType = var.complexType;
                 // Check if it's a primitive type
                 if (isPrimitiveType(complexType)) {
-                    // Handle primitive types directly
-                    setPrimitiveType(complexType, property);
+                    // For an array of primitives complexType holds the ELEMENT type;
+                    // setPropertyType already emitted type:array with typed items, so
+                    // only scalar properties get the primitive type applied here.
+                    if (!var.isArray) {
+                        setPrimitiveType(complexType, property);
+                    }
                 } else if (var.isArray) {
                     // Array of complex type
                     property.put("type", "array");
@@ -247,16 +261,7 @@ public class JsonSchemaGenerator {
             }
 
             // Handle enums
-            if (var.allowableValues != null && var.allowableValues.containsKey("values")) {
-                @SuppressWarnings("unchecked")
-                List<String> enumValues = (List<String>) var.allowableValues.get("values");
-                if (enumValues != null && !enumValues.isEmpty()) {
-                    ArrayNode enumNode = property.putArray("enum");
-                    for (String value : enumValues) {
-                        enumNode.add(value);
-                    }
-                }
-            }
+            addEnumValues(var, property);
         }
     }
 

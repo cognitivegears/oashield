@@ -88,30 +88,33 @@ public class PatternGenerationService {
         }
         // Fallback
         else {
+            // Path parameters must not match across segment boundaries, otherwise
+            // /user/a/b would route into /user/{username}.
+            String anyChar = param.isPathParam ? "[^/]" : ".";
             // Use minLength/maxLength if set for string types
             if (!minLengthPatternString.isEmpty() || !maxLengthPatternString.isEmpty()) {
                 String min = minLengthPatternString.isEmpty() ? "0" : minLengthPatternString;
                 String pattern;
                 if (!min.isEmpty() && !maxLengthPatternString.isEmpty()) {
-                    pattern = "^.{" + min + "," + maxLengthPatternString + "}$";
+                    pattern = "^" + anyChar + "{" + min + "," + maxLengthPatternString + "}$";
                 } else if (!min.isEmpty() && maxLengthPatternString.isEmpty()) {
                     if (min.equals("1")) {
-                        pattern = "^.+$";
+                        pattern = "^" + anyChar + "+$";
                     } else if (min.equals("0")) {
-                        pattern = "^.*$";
+                        pattern = "^" + anyChar + "*$";
                     } else {
-                        pattern = "^.{" + min + ",}$";
+                        pattern = "^" + anyChar + "{" + min + ",}$";
                     }
                 } else if (min.isEmpty() && !maxLengthPatternString.isEmpty()) {
                     // If required, min should be 1; if not required, min is 0
                     String minVal = isRequired ? "1" : "0";
-                    pattern = "^.{" + minVal + "," + maxLengthPatternString + "}$";
+                    pattern = "^" + anyChar + "{" + minVal + "," + maxLengthPatternString + "}$";
                 } else {
-                    pattern = isRequired ? "^.+$" : "^.*$";
+                    pattern = isRequired ? "^" + anyChar + "+$" : "^" + anyChar + "*$";
                 }
                 patternString = pattern;
             } else {
-                patternString = isRequired ? "^.+$" : "^.*$";
+                patternString = isRequired ? "^" + anyChar + "+$" : "^" + anyChar + "*$";
             }
         }
         return patternString;
@@ -240,20 +243,21 @@ public class PatternGenerationService {
             // Binary: hex encoded with bounded length
             return "[0-9a-fA-F]{0,10000}";
         } else if (param.isEnum) {
-            List<String> enumValues = null;
-            try {
-                enumValues = (List<String>)param.allowableValues.get("values");
-            }
-            catch (ClassCastException e) {
-                LOGGER.warn("Could not cast allowable values to list of strings for parameter: {}", param.baseName);
+            // Enum values can be Strings or numbers/booleans (integer enums), so
+            // treat them as Objects and stringify each one.
+            List<?> enumValues = null;
+            Object values = param.allowableValues != null ? param.allowableValues.get("values") : null;
+            if (values instanceof List) {
+                enumValues = (List<?>) values;
             }
             // For empty/null/invalid enum, return "." as per test
-            if (enumValues == null || !(enumValues instanceof List) || enumValues.isEmpty()) {
+            if (enumValues == null || enumValues.isEmpty()) {
                 return ".";
             }
             // Only escape if value contains regex metacharacters
             List<String> escapedValues = new java.util.ArrayList<>();
-            for (String v : enumValues) {
+            for (Object o : enumValues) {
+                String v = String.valueOf(o);
                 if (v.matches("^[a-zA-Z0-9_]+$")) {
                     escapedValues.add(v);
                 } else {

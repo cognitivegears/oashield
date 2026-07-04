@@ -473,6 +473,34 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
 
           // Add the flattened properties to the parameter
           param.vendorExtensions.put(MODSECURITY_MODEL_PROPERTIES, flattenedProperties);
+        } else if (param.isBodyParam && param.isArray) {
+          // Root-level JSON array body: flatten as an array at the root. Element
+          // index 0 stands in for every element (generalized to a regex later);
+          // without this the ARGS_NAMES allowlist is empty and every element key
+          // is rejected as an unknown parameter.
+          List<CodegenProperty> flattenedProperties = new ArrayList<CodegenProperty>();
+          List<CodegenProperty> itemVars = null;
+          if (param.items != null) {
+            if (param.items.vars != null && !param.items.vars.isEmpty()) {
+              itemVars = param.items.vars;
+            } else {
+              itemVars = lookupModelVars(param.items, modelLookup);
+            }
+          }
+          if (itemVars != null) {
+            for (CodegenProperty prop : itemVars) {
+              flattenedProperties.addAll(flattenModel(prop, JSON_ARGS_PREFIX + "0.", 2, modelLookup));
+            }
+          } else if (param.items != null) {
+            // root array of primitives: element keys are json.0 / json.array_0
+            CodegenProperty leaf = flattenedLeaf(param.items, JSON_ARGS_PREFIX);
+            leaf.baseName = JSON_ARGS_PREFIX + "0";
+            flattenedProperties.add(leaf);
+          }
+          for (CodegenProperty prop : flattenedProperties) {
+            decorateBodyProperty(prop, argsAllowlist);
+          }
+          param.vendorExtensions.put(MODSECURITY_MODEL_PROPERTIES, flattenedProperties);
         }
 
         if (param.isQueryParam || param.isFormParam) {
@@ -506,8 +534,15 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
             patternString = getParamPattern(param);
           }
           LOGGER.debug("Calculated pattern string {}", patternString);
-          param.setPattern(patternString);
         }
+        // allowEmptyValue: an empty value is explicitly valid for this parameter
+        if (param.isAllowEmptyValue && patternString != null && !patternString.isEmpty()) {
+          patternString = "^(?:" + stripAnchors(patternString) + ")?$";
+        }
+        // Always write back: spec-provided patterns arrive DefaultCodegen-mangled
+        // (/.../-delimited, backslashes doubled), and the template and
+        // buildPathMatchRegex read param.pattern directly.
+        param.setPattern(patternString);
         LOGGER.debug("param: {}, validation: {}, pattern: {}", param.hasValidation, param.pattern);
         LOGGER.debug("Parameter: {}, data type: {}, isString: {}, max length: {}", param.baseName, param.getDataType(),
             param.isString, param.getMaxLength());

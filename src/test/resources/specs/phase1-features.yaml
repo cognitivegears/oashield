@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: Phase 1 fixes
+  version: "1.0"
+paths:
+  /users/{name}:
+    get:
+      operationId: getUser
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-z]{3,10}$'
+      responses:
+        "200":
+          description: ok
+  /files/{fileId}:
+    get:
+      operationId: getFile
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ok
+  /search:
+    get:
+      operationId: search
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9.]{1,20}$'
+        - name: flag
+          in: query
+          allowEmptyValue: true
+          schema:
+            type: string
+            pattern: '^[a-z]+$'
+      responses:
+        "200":
+          description: ok
+  /bulk-users:
+    post:
+      operationId: bulkCreateUsers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/BulkUser'
+      responses:
+        "200":
+          description: ok
+  /bulk-tags:
+    post:
+      operationId: bulkCreateTags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+      responses:
+        "200":
+          description: ok
+components:
+  schemas:
+    BulkUser:
+      type: object
+      properties:
+        username:
+          type: string
+        level:
+          type: integer
+          enum: [1, 2, 3]
