@@ -1,152 +1,95 @@
+<div align="center">
+
+![OAShield](https://github.com/user-attachments/assets/b1051f27-ea0e-44a7-9ff1-d37144c956c3)
+
 # OAShield
 
-![oashield_500](https://github.com/user-attachments/assets/b1051f27-ea0e-44a7-9ff1-d37144c956c3)
+**Turn your OpenAPI spec into a Web Application Firewall that only allows valid API calls.**
 
-## Overview
-The OAShield (pronounced like "away shield" or /əˈweɪ ʃild/) project provides a generator for creating Web Application Firewall (WAF) configuration files based on OpenAPI specifications. By leveraging the OpenAPI spec, the generated rules will only allow valid API calls, enhancing security by disallowing any undefined operations.
+[![CI](https://github.com/cognitivegears/oashield/actions/workflows/ci.yml/badge.svg)](https://github.com/cognitivegears/oashield/actions/workflows/ci.yml)
+[![Tests](https://github.com/cognitivegears/oashield/actions/workflows/maven-tests.yml/badge.svg)](https://github.com/cognitivegears/oashield/actions/workflows/maven-tests.yml)
+[![CLI Build](https://github.com/cognitivegears/oashield/actions/workflows/maven-build-cli.yml/badge.svg)](https://github.com/cognitivegears/oashield/actions/workflows/maven-build-cli.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE.md)
+[![Latest Release](https://img.shields.io/github/v/release/cognitivegears/oashield?sort=semver)](https://github.com/cognitivegears/oashield/releases)
 
-OAShield generates SecLang rules for both OWASP ModSecurity v3 (libmodsecurity) and [Coraza](https://coraza.io), selectable via the `engineFlavor` option (see below).
+[Website](https://oashield.com) · [Getting Started](docs/getting-started.md) · [Configuration](docs/configuration.md) · [Releases](https://github.com/cognitivegears/oashield/releases)
 
-## Description
-Traditional WAF rules rely on pattern matching to detect and block suspicious requests. This generator takes a different approach by using the OpenAPI specification to define what constitutes a valid request. For example, if an API specification does not define a POST method for a particular endpoint, the generated rules will disallow any POST requests to that endpoint. These rules can be deployed alongside the API or in a sidecar to provide an additional security layer.
+</div>
 
-## Usage Instructions
+---
 
+## What is OAShield?
 
-### Build the Project:
-1. **Prerequisites:**
-    - Java 8 or later
-    - Maven 3.6.0 or later
-2. Clone the repository:
-    ```
-      git clone https://github.com/cognitivegears/oashield.git
-    ```
-3. Build the generator project including the CLI jar:
-     ```
-     cd oashield
-     mvn package -P build-cli-jar
-     ```
-This will produce a JAR file `oashield-cli.jar` in the `target` directory.
+OAShield (pronounced like "away shield", /əˈweɪ ʃild/) generates Web Application
+Firewall (WAF) rules directly from your OpenAPI specification. The generated
+rules act as a **positive security model**: they permit exactly the requests
+your API defines and deny everything else.
 
-### OR Download the CLI Jar:
+It produces standard [SecLang](https://coraza.io/docs/seclang/) rules for both
+**[OWASP ModSecurity v3](https://github.com/owasp-modsecurity/ModSecurity)**
+(libmodsecurity) and **[Coraza](https://coraza.io)**, selectable with a single
+option.
 
-   - Download the latest release of oashield-cli.jar from the [Releases](https://github.com/cognitivegears/oashield/releases) page.
+## Why OAShield?
 
+Traditional WAFs rely on pattern matching — a blocklist that tries to recognize
+known-bad requests. That leaves a gap: anything the patterns haven't seen gets
+through.
 
-### Run the generator:
-   - Use the following command to generate the ModSecurity configuration:
-     ```
-     java -cp target/oashield-cli.jar org.openapitools.codegen.OpenAPIGenerator generate -g modsecurity3 -i /path/to/openapi.yaml -o /path/to/output/dir
-     ```
-     Replace `/path/to/openapi.yaml`, and `/path/to/output/dir` with the appropriate paths.
+OAShield flips the model. Instead of guessing what's malicious, it uses your
+OpenAPI spec as the definition of what's **valid**:
 
-   - For Windows users, use `;` instead of `:` in the classpath:
-     ```
-     java -cp target/oashield-cli.jar org.openapitools.codegen.OpenAPIGenerator generate -g modsecurity3 -i /path/to/openapi.yaml -o /path/to/output/dir
-     ```
+- **Deny by default.** If your spec doesn't define a `POST /orders`, the rules
+  reject every `POST /orders` request — no signature required.
+- **Enforce your contract.** Undeclared endpoints, methods, parameters, and
+  request-body fields are blocked. Type and range constraints from the schema
+  are checked.
+- **Deploy anywhere SecLang runs.** Ship the rules alongside your API or in a
+  sidecar for an extra layer that mirrors your API surface exactly.
 
-### Engine flavors
+Your OpenAPI spec is already the source of truth for your API. OAShield makes it
+the source of truth for your perimeter too. Curious what the rules look like?
+See [How It Works](docs/how-it-works.md).
 
-Most generated rules are identical for both engines; the flavor selects how JSON
-request bodies are validated:
+## Quick Start
 
-| Flavor | JSON body validation |
+```bash
+# 1. Get the CLI (or download from Releases)
+git clone https://github.com/cognitivegears/oashield.git
+cd oashield
+mvn package -P build-cli-jar
+
+# 2. Generate rules from your spec
+java -cp target/oashield-cli.jar org.openapitools.codegen.OpenAPIGenerator \
+  generate -g modsecurity3 \
+  -i samples/petstore.yaml \
+  -o output/
+
+# 3. Deploy the generated .conf files to your ModSecurity or Coraza setup
+```
+
+Full walkthrough: **[Getting Started](docs/getting-started.md)**.
+
+## Documentation
+
+| Guide | What's inside |
 |---|---|
-| `modsecurity3` (default) | Per-field rules generated from the OpenAPI schema: required-property presence, per-property type patterns, numeric minimum/maximum, and an `ARGS_NAMES` allowlist rejecting undeclared properties (`additionalProperties`) |
-| `coraza` | The same per-field rules, plus a `@validateSchema` rule validating the raw body against the generated JSON Schema. `@validateSchema` is Coraza-only — ModSecurity v3's operator of the same name is XSD/XML-only |
+| [Getting Started](docs/getting-started.md) | Install, generate rules, and deploy them |
+| [How It Works](docs/how-it-works.md) | What the generated rules do, block by block |
+| [Configuration](docs/configuration.md) | Options, engine flavors, and validation limitations |
+| [Integration Testing](docs/integration-testing.md) | Running the test suite against real WAF engines |
 
-Select the flavor with additional properties:
+## Examples
 
-```
-... generate -g modsecurity3 -i api.yaml -o out --additional-properties engineFlavor=coraza,schemaRulePath=rules/schema.json
-```
+Sample OpenAPI specs live in [`samples/`](samples), with pre-generated rules in
+[`samples/output/petstore/`](samples/output/petstore) so you can see what
+OAShield produces before running it yourself.
 
-Available options:
-- `engineFlavor` — `modsecurity3` (default) or `coraza`
-- `validateBodySchema` — emit request-body validation rules (default `true`)
-- `generateJsonSchema` — emit the JSON Schema file (default `true`)
-- `jsonSchemaOutputFile` — schema file name (default `schema.json`)
-- `schemaRulePath` — the schema path written inside the `@validateSchema` rule; Coraza resolves it relative to the server process working directory, not the rules directory (default: same as `jsonSchemaOutputFile`)
+## Contributing
 
-Known limitations of per-field body validation (Coraza's `@validateSchema` additionally covers these):
-- Values are validated after the engine flattens JSON to strings, so a JSON number where a free-form string is expected (e.g. `"name": 123`) is not distinguishable.
-- `required` is enforced for object properties (nested ones only when their parent object is present, per JSON Schema semantics), but not per array element; an empty array satisfies a required array property only on the `coraza` flavor.
-- Model nesting is flattened to a depth of 5 levels; deeper properties are covered only by the unknown-property allowlist.
-- Numeric minimum/maximum on *path* parameters is enforced only lexically via the embedded path pattern.
-
-### Deploy the generated rules:
-
-Copy the generated ModSecurity configuration files from the output path (i.e. `/path/to/output/dir`) to your ModSecurity setup.
-
-## Testing
-
-### Unit Tests
-
-Run the unit tests with:
-
-```bash
-mvn test
-```
-
-### Integration Tests
-
-Integration tests validate the generated rules against real WAF engines — every scenario runs against both Coraza (`ghcr.io/cognitivegears/coraza-validate-server`) and OWASP ModSecurity v3 (`owasp/modsecurity-crs:nginx`, CRS disabled, oashield rules only). These tests require Docker to be installed and running.
-
-Note: the `owasp/modsecurity-crs:nginx` image currently publishes only `linux/386`; on other architectures (e.g. Apple Silicon) pull it once with:
-
-```bash
-docker pull --platform linux/386 owasp/modsecurity-crs:nginx
-```
-
-Run the integration tests with:
-
-```bash
-mvn verify
-```
-
-or specifically:
-
-```bash
-mvn failsafe:integration-test failsafe:verify
-```
-
-The integration tests:
-- Generate ModSecurity rules from sample OpenAPI specifications
-- Launch a Coraza WAF container with the generated rules
-- Send HTTP requests to validate that the rules correctly enforce the API specification
-- Test various scenarios including parameter validation, path validation, and method validation
-
-Test reports are generated in the `target/extent-reports` directory.
-
-#### Note for ARM Architecture Users (Mac M1/M2/M3)
-
-Integration tests now support ARM-based systems (like Mac M1/M2/M3) as the Docker container is available for ARM architecture. You can run the integration tests normally on ARM systems:
-
-```bash
-mvn verify
-```
-
-If you want to skip the HTTP calls for any reason, you can use:
-
-```bash
-mvn verify -Dskip.http.calls=true
-```
-
-You can also run tests with relaxed validation for status codes (useful when running on systems where some rules may not work correctly yet):
-
-```bash
-mvn verify -Dskip.strict.validation=true
-```
-
-### Continuous Integration
-
-This project uses GitHub Actions for continuous integration:
-
-- **OAShield Tests**: Runs on all PRs and pushes to the main branch, executing unit and integration tests.
-- **OAShield CLI Build**: Builds the CLI JAR and verifies its functionality.
-- **OAShield CI**: Comprehensive workflow that builds, tests, and verifies both the library and CLI.
-
-The GitHub Actions workflows automatically skip HTTP calls during testing to ensure compatibility with the CI environment.
+Issues and pull requests are welcome. Please run `mvn test` before submitting;
+see [Integration Testing](docs/integration-testing.md) for the full suite.
 
 ## License
-This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE.md) file for details.
+
+Licensed under the Apache License 2.0. See [LICENSE.md](LICENSE.md).
