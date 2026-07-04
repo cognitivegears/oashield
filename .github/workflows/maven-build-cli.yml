@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [ main ]
 
+# contents: write is required by the Create Release step on tag pushes
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
