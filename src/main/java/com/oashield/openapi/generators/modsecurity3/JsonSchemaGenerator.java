@@ -112,6 +112,14 @@ public class JsonSchemaGenerator {
             // Set type to object
             schemaNode.put("type", "object");
 
+            // Model-level property counts
+            if (model.getMinProperties() != null) {
+                schemaNode.put("minProperties", model.getMinProperties());
+            }
+            if (model.getMaxProperties() != null) {
+                schemaNode.put("maxProperties", model.getMaxProperties());
+            }
+
             // Process properties
             if (model.vars != null && !model.vars.isEmpty()) {
                 processProperties(model.vars, schemaNode);
@@ -219,6 +227,25 @@ public class JsonSchemaGenerator {
             String name = var.name;
             ObjectNode property = properties.putObject(name);
 
+            // Maps and free-form objects: emit additionalProperties instead of a
+            // scalar type wrongly derived from the container dataType
+            if (var.isMap || var.isFreeFormObject) {
+                property.put("type", "object");
+                if (var.isMap && var.items != null) {
+                    ObjectNode valueSchema = property.putObject("additionalProperties");
+                    setItemType(var, valueSchema);
+                    processValidationConstraints(var.items, valueSchema);
+                    addEnumValues(var.items, valueSchema);
+                } else {
+                    property.put("additionalProperties", true);
+                }
+                if (var.description != null && !var.description.isEmpty()) {
+                    property.put("description", var.description);
+                }
+                processValidationConstraints(var, property);
+                continue;
+            }
+
             // Set property type
             setPropertyType(var, property);
 
@@ -260,6 +287,12 @@ public class JsonSchemaGenerator {
                 }
             }
 
+            // Nullable: JSON null must validate (type arrays are core JSON Schema)
+            if (var.isNullable && property.has("type") && property.get("type").isTextual()) {
+                String baseType = property.get("type").asText();
+                property.putArray("type").add(baseType).add("null");
+            }
+
             // Handle enums
             addEnumValues(var, property);
         }
@@ -274,7 +307,14 @@ public class JsonSchemaGenerator {
     private void processRequiredProperties(List<CodegenProperty> requiredVars, ObjectNode schemaNode) {
         ArrayNode required = schemaNode.putArray("required");
         for (CodegenProperty var : requiredVars) {
+            // readOnly properties may legally be omitted from requests
+            if (var.isReadOnly) {
+                continue;
+            }
             required.add(var.name);
+        }
+        if (required.isEmpty()) {
+            schemaNode.remove("required");
         }
     }
 
@@ -361,10 +401,11 @@ public class JsonSchemaGenerator {
      * @param property The property node to add constraints to
      */
     private void processValidationConstraints(CodegenProperty var, ObjectNode property) {
-        // Minimum value
+        // Minimum value (numeric exclusiveMinimum form when the bound is exclusive)
         if (var.minimum != null) {
             try {
-                property.put("minimum", Double.parseDouble(var.minimum));
+                property.put(var.exclusiveMinimum ? "exclusiveMinimum" : "minimum",
+                        Double.parseDouble(var.minimum));
             } catch (NumberFormatException e) {
                 log.warn("Invalid minimum value: {}", var.minimum);
             }
@@ -373,10 +414,24 @@ public class JsonSchemaGenerator {
         // Maximum value
         if (var.maximum != null) {
             try {
-                property.put("maximum", Double.parseDouble(var.maximum));
+                property.put(var.exclusiveMaximum ? "exclusiveMaximum" : "maximum",
+                        Double.parseDouble(var.maximum));
             } catch (NumberFormatException e) {
                 log.warn("Invalid maximum value: {}", var.maximum);
             }
+        }
+
+        // multipleOf
+        if (var.multipleOf != null) {
+            property.put("multipleOf", new java.math.BigDecimal(var.multipleOf.toString()));
+        }
+
+        // Object property counts
+        if (var.getMinProperties() != null) {
+            property.put("minProperties", var.getMinProperties());
+        }
+        if (var.getMaxProperties() != null) {
+            property.put("maxProperties", var.getMaxProperties());
         }
 
         // Minimum length

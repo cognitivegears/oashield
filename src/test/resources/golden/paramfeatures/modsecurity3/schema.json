@@ -9,7 +9,8 @@
       "type" : "object",
       "properties" : {
         "price" : {
-          "type" : "integer"
+          "type" : "integer",
+          "multipleOf" : 100
         },
         "labels" : {
           "type" : "array",

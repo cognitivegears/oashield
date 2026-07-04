@@ -1149,37 +1149,10 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
   }
 
   /**
-   * Process models and generate JSON Schema.
-   *
-   * @param objs The models to process
-   * @return The processed models
-   */
-  @Override
-  public ModelsMap postProcessModels(ModelsMap objs) {
-    ModelsMap result = super.postProcessModels(objs);
-
-    try {
-      LOGGER.info("Generating JSON Schema from models...");
-      JsonSchemaGenerator jsonSchemaGenerator = new JsonSchemaGenerator();
-      String jsonSchema = jsonSchemaGenerator.generateJsonSchema(result);
-
-      // Save the JSON Schema to a file
-      String outputPath = outputFolder + File.separator + "schema.json";
-      try {
-        Files.write(Paths.get(outputPath), jsonSchema.getBytes());
-        LOGGER.info("JSON Schema generated successfully: {}", outputPath);
-      } catch (IOException e) {
-        LOGGER.error("Error writing JSON Schema to file: {}", e.getMessage());
-      }
-    } catch (Exception e) {
-      LOGGER.error("Error generating JSON Schema: {}", e.getMessage());
-    }
-
-    return result;
-  }
-
-  /**
-   * Process all models and generate JSON Schema.
+   * Process all models and generate JSON Schema. (The per-ModelsMap
+   * postProcessModels hook is deliberately NOT overridden: it used to overwrite
+   * schema.json with partial single-model content on every call before
+   * postProcessAllModels wrote the combined file.)
    */
   @Override
   public Map<String, ModelsMap> postProcessAllModels(Map<String, ModelsMap> objs) {
