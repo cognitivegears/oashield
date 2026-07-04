@@ -5,7 +5,7 @@
 ## Overview
 The OAShield (pronounced like "away shield" or /əˈweɪ ʃild/) project provides a generator for creating Web Application Firewall (WAF) configuration files based on OpenAPI specifications. By leveraging the OpenAPI spec, the generated rules will only allow valid API calls, enhancing security by disallowing any undefined operations.
 
-Currently, OAShield supports generating Modsecurity3 rules, though additional rule generations are planned for the future.
+OAShield generates SecLang rules for both OWASP ModSecurity v3 (libmodsecurity) and [Coraza](https://coraza.io), selectable via the `engineFlavor` option (see below).
 
 ## Description
 Traditional WAF rules rely on pattern matching to detect and block suspicious requests. This generator takes a different approach by using the OpenAPI specification to define what constitutes a valid request. For example, if an API specification does not define a POST method for a particular endpoint, the generated rules will disallow any POST requests to that endpoint. These rules can be deployed alongside the API or in a sidecar to provide an additional security layer.
@@ -45,6 +45,35 @@ This will produce a JAR file `oashield-cli.jar` in the `target` directory.
      java -cp target/oashield-cli.jar org.openapitools.codegen.OpenAPIGenerator generate -g modsecurity3 -i /path/to/openapi.yaml -o /path/to/output/dir
      ```
 
+### Engine flavors
+
+Most generated rules are identical for both engines; the flavor selects how JSON
+request bodies are validated:
+
+| Flavor | JSON body validation |
+|---|---|
+| `modsecurity3` (default) | Per-field rules generated from the OpenAPI schema: required-property presence, per-property type patterns, numeric minimum/maximum, and an `ARGS_NAMES` allowlist rejecting undeclared properties (`additionalProperties`) |
+| `coraza` | The same per-field rules, plus a `@validateSchema` rule validating the raw body against the generated JSON Schema. `@validateSchema` is Coraza-only — ModSecurity v3's operator of the same name is XSD/XML-only |
+
+Select the flavor with additional properties:
+
+```
+... generate -g modsecurity3 -i api.yaml -o out --additional-properties engineFlavor=coraza,schemaRulePath=rules/schema.json
+```
+
+Available options:
+- `engineFlavor` — `modsecurity3` (default) or `coraza`
+- `validateBodySchema` — emit request-body validation rules (default `true`)
+- `generateJsonSchema` — emit the JSON Schema file (default `true`)
+- `jsonSchemaOutputFile` — schema file name (default `schema.json`)
+- `schemaRulePath` — the schema path written inside the `@validateSchema` rule; Coraza resolves it relative to the server process working directory, not the rules directory (default: same as `jsonSchemaOutputFile`)
+
+Known limitations of per-field body validation (Coraza's `@validateSchema` additionally covers these):
+- Values are validated after the engine flattens JSON to strings, so a JSON number where a free-form string is expected (e.g. `"name": 123`) is not distinguishable.
+- `required` is enforced for object properties (nested ones only when their parent object is present, per JSON Schema semantics), but not per array element; an empty array satisfies a required array property only on the `coraza` flavor.
+- Model nesting is flattened to a depth of 5 levels; deeper properties are covered only by the unknown-property allowlist.
+- Numeric minimum/maximum on *path* parameters is enforced only lexically via the embedded path pattern.
+
 ### Deploy the generated rules:
 
 Copy the generated ModSecurity configuration files from the output path (i.e. `/path/to/output/dir`) to your ModSecurity setup.
@@ -61,7 +90,13 @@ mvn test
 
 ### Integration Tests
 
-Integration tests validate the generated rules against a real ModSecurity-compatible WAF (Coraza). These tests require Docker to be installed and running.
+Integration tests validate the generated rules against real WAF engines — every scenario runs against both Coraza (`ghcr.io/cognitivegears/coraza-validate-server`) and OWASP ModSecurity v3 (`owasp/modsecurity-crs:nginx`, CRS disabled, oashield rules only). These tests require Docker to be installed and running.
+
+Note: the `owasp/modsecurity-crs:nginx` image currently publishes only `linux/386`; on other architectures (e.g. Apple Silicon) pull it once with:
+
+```bash
+docker pull --platform linux/386 owasp/modsecurity-crs:nginx
+```
 
 Run the integration tests with:
 

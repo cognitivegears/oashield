@@ -9,12 +9,11 @@ import org.testcontainers.utility.DockerImageName;
  * This class handles starting and stopping the container, and provides
  * methods for accessing the container's host and port.
  */
-public class CorazaContainerManager {
+public class CorazaContainerManager implements WafContainerManager {
     private static final String CORAZA_IMAGE = "ghcr.io/cognitivegears/coraza-validate-server:latest";
     private static final int CORAZA_PORT = 8080;
 
     private final GenericContainer<?> container;
-    private final String rulesDirectory;
 
     /**
      * Constructor for the Coraza container manager using default image.
@@ -28,15 +27,17 @@ public class CorazaContainerManager {
     /**
      * Constructor for the Coraza container manager with custom image.
      *
-     * @param rulesDirectory The absolute path to the directory containing the rules
+     * @param rulesDirectory The absolute path to the directory containing the rules (main.conf + *Api.conf)
      * @param containerImage Docker image name for the container
      */
     public CorazaContainerManager(String rulesDirectory, String containerImage) {
-        this.rulesDirectory = rulesDirectory;
+        // The server reads /app/rules/main.conf; @validateSchema paths like
+        // "rules/schema.json" resolve relative to its /app working directory.
         this.container = new GenericContainer<>(DockerImageName.parse(containerImage))
                 .withExposedPorts(CORAZA_PORT)
-                .withFileSystemBind(rulesDirectory, "/etc/coraza/rules")
-                .waitingFor(Wait.forHttp("/").forStatusCode(200));
+                .withFileSystemBind(rulesDirectory, "/app/rules")
+                // A WAF that answers 403 at / (undefined endpoint, default deny) is healthy.
+                .waitingFor(Wait.forHttp("/").forStatusCode(200).forStatusCode(403));
     }
 
     /**
@@ -44,6 +45,7 @@ public class CorazaContainerManager {
      *
      * @return The base URL for accessing the container
      */
+    @Override
     public String start() {
         container.start();
         return getBaseUrl();
@@ -52,6 +54,7 @@ public class CorazaContainerManager {
     /**
      * Stops the Coraza container.
      */
+    @Override
     public void stop() {
         if (container != null && container.isRunning()) {
             container.stop();
@@ -63,6 +66,7 @@ public class CorazaContainerManager {
      *
      * @return The base URL in the format http://host:port
      */
+    @Override
     public String getBaseUrl() {
         return String.format("http://%s:%d", container.getHost(), container.getMappedPort(CORAZA_PORT));
     }

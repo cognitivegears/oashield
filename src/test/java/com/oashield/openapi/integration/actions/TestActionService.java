@@ -27,7 +27,18 @@ public final class TestActionService {
      * @return the base URL of the started container
      */
     public static String startContainerWithRules(String rulesDirectory) {
-        baseUrl = ContainerAction.startContainerWithRules(rulesDirectory);
+        return startContainerWithRules(rulesDirectory, "coraza");
+    }
+
+    /**
+     * Start the WAF container for the given engine flavor.
+     *
+     * @param outputDir    generation output directory (rules live in its rules/ subdirectory)
+     * @param engineFlavor "coraza" or "modsecurity3"
+     * @return the base URL of the started container
+     */
+    public static String startContainerWithRules(String outputDir, String engineFlavor) {
+        baseUrl = ContainerAction.startContainerWithRules(outputDir + "/rules", engineFlavor);
         return baseUrl;
     }
 
@@ -174,6 +185,19 @@ public final class TestActionService {
      */
     public static String generateAndVerifyRules(String specPath, String outputDir, boolean useJsonSchema) {
         return RuleGenerationAction.generateAndVerifyRules(specPath, outputDir, useJsonSchema);
+    }
+
+    /**
+     * Generate rules for the given engine flavor and verify output files.
+     *
+     * @param specPath      path to OpenAPI spec
+     * @param outputDir     output directory
+     * @param useJsonSchema whether body validation is enabled
+     * @param engineFlavor  "coraza" or "modsecurity3"
+     * @return generated rules path
+     */
+    public static String generateAndVerifyRules(String specPath, String outputDir, boolean useJsonSchema, String engineFlavor) {
+        return RuleGenerationAction.generateAndVerifyRules(specPath, outputDir, useJsonSchema, engineFlavor);
     }
 
     /**

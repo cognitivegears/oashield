@@ -22,11 +22,29 @@
 ## Overview and Purpose
 
 The integration testing framework verifies end-to-end behavior of OAShield by:
-- Bootstrapping required services (e.g., Coraza container)
+- Bootstrapping the WAF engine containers under test
 - Executing HTTP requests against sample OpenAPI specifications
-- Validating generated ModSecurity rules and API responses
+- Validating generated rules and API responses
 
-This framework ensures that all components interact correctly under realistic conditions.
+Every Cucumber scenario is a Scenario Outline that runs against **both supported
+engines**:
+- **Coraza** — `ghcr.io/cognitivegears/coraza-validate-server:latest`, rules mounted
+  at `/app/rules` (the server reads `/app/rules/main.conf`; `@validateSchema` paths
+  resolve relative to `/app`, hence `rules/schema.json`).
+- **OWASP ModSecurity v3** — `owasp/modsecurity-crs:nginx` (libmodsecurity + nginx)
+  with the CRS neutralized via nginx config templates in
+  `src/test/resources/container/`; only the generated oashield rules load. Requests
+  are proxied to a local upstream because nginx `return` answers before
+  ModSecurity's request-body phase runs.
+
+Note: `owasp/modsecurity-crs:nginx` currently publishes only `linux/386`. On other
+architectures (e.g. Apple Silicon) pull it once with
+`docker pull --platform linux/386 owasp/modsecurity-crs:nginx`; the container is
+started with an explicit `linux/386` platform request.
+
+A WAF container is considered healthy when `GET /` answers 200 **or 403** — with
+rules loaded, `/` is an undefined endpoint and the default-deny 403 proves the
+engine is up and enforcing.
 
 ## Prerequisites
 
@@ -143,6 +161,18 @@ Current scenarios:
 ## Troubleshooting
 
 - **Docker not found**: Ensure Docker is installed and in PATH.
+- **`Could not find a valid Docker environment` with `BadRequestException (Status 400 ...)`**:
+  Docker Engine 29+ rejects Docker API versions below 1.44, while the docker-java
+  client used by Testcontainers may request an older one. Pin the API version via
+  docker-java's properties environment variable:
+  ```bash
+  DOCKER_JAVA_PROPERTIES="api.version=1.44" mvn verify
+  ```
+- **`no matching manifest for linux/arm64` pulling `owasp/modsecurity-crs:nginx`**:
+  the image publishes only `linux/386`; pull it once explicitly:
+  ```bash
+  docker pull --platform linux/386 owasp/modsecurity-crs:nginx
+  ```
 - **Permission denied writing output**: Check `output.directory.base` and file permissions.
 - **Test hangs**: Increase `test.timeout` or disable parallel execution:
   ```bash

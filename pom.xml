@@ -269,7 +269,8 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
-            <version>1.19.7</version>
+            <!-- 1.19.x speaks a Docker API version rejected by Docker Engine 29+ -->
+            <version>1.21.4</version>
             <scope>test</scope>
         </dependency>
         <dependency>

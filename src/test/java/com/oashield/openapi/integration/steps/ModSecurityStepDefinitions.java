@@ -43,8 +43,8 @@ public class ModSecurityStepDefinitions {
         }
     }
 
-    @Given("the Coraza server is ready for testing")
-    public void corazaServerIsReady() {
+    @Given("the WAF test environment is ready")
+    public void wafTestEnvironmentIsReady() {
         // Placeholder for Docker availability
     }
 
@@ -58,19 +58,22 @@ public class ModSecurityStepDefinitions {
         testContext.put("specName", specName);
     }
 
-    @When("I generate ModSecurity rules with JSON Schema validation")
-    public void generateRulesWithJsonSchema() {
-        TestActionService.generateAndVerifyRules(openApiSpecPath, outputDir, true);
+    @When("I generate rules with body validation for {string}")
+    public void generateRulesWithBodyValidation(String engineFlavor) {
+        testContext.put("engineFlavor", engineFlavor);
+        TestActionService.generateAndVerifyRules(openApiSpecPath, outputDir, true, engineFlavor);
     }
 
-    @When("I generate ModSecurity rules without JSON Schema validation")
-    public void generateRulesWithoutJsonSchema() {
-        TestActionService.generateAndVerifyRules(openApiSpecPath, outputDir, false);
+    @When("I generate rules without body validation for {string}")
+    public void generateRulesWithoutBodyValidation(String engineFlavor) {
+        testContext.put("engineFlavor", engineFlavor);
+        TestActionService.generateAndVerifyRules(openApiSpecPath, outputDir, false, engineFlavor);
     }
 
-    @When("I start the Coraza server with the generated rules")
-    public void startCorazaServer() {
-        baseUrl = TestActionService.startContainerWithRules(outputDir);
+    @When("I start the WAF server with the generated rules")
+    public void startWafServer() {
+        String engineFlavor = (String) testContext.getOrDefault("engineFlavor", "coraza");
+        baseUrl = TestActionService.startContainerWithRules(outputDir, engineFlavor);
     }
 
     @Then("a valid GET request to {string} should return a {int} status code")
@@ -143,5 +146,14 @@ public class ModSecurityStepDefinitions {
     public void getRequestWithoutParametersShouldReturnStatusCode(String path, int expectedStatus) {
         Response response = TestActionService.executeGetRequest(path);
         TestActionService.assertStatusCode(response, expectedStatus, "GET request without parameters to " + path);
+    }
+
+    @Then("a POST request to {string} with an invalid body {string} should be blocked with a {int} status code")
+    public void postRequestWithNamedInvalidBodyShouldBeBlocked(String path, String variant, int expectedStatus) {
+        String specName = (String) testContext.get("specName");
+        String invalidBody = TestDataService.getInstance().getInvalidRequestBody(specName + ":" + path, variant);
+        Response response = TestActionService.executePostRequest(path, invalidBody);
+        TestActionService.assertStatusCodeWithRelaxedValidation(response, expectedStatus,
+            "POST request with invalid body '" + variant + "' to " + path);
     }
 }

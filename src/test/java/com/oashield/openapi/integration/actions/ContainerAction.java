@@ -2,6 +2,8 @@ package com.oashield.openapi.integration.actions;
 
 import com.oashield.openapi.integration.config.TestConfigurationService;
 import com.oashield.openapi.integration.util.CorazaContainerManager;
+import com.oashield.openapi.integration.util.ModSecurityContainerManager;
+import com.oashield.openapi.integration.util.WafContainerManager;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import org.slf4j.Logger;
@@ -15,7 +17,7 @@ public class ContainerAction {
 
     private static final Logger logger = LoggerFactory.getLogger(ContainerAction.class);
     private static final TestConfigurationService configService = TestConfigurationService.getInstance();
-    private static CorazaContainerManager containerManager;
+    private static WafContainerManager containerManager;
 
     /**
      * Start the Coraza container with the specified rules directory.
@@ -24,20 +26,35 @@ public class ContainerAction {
      * @return the base URL of the started container
      */
     public static String startContainerWithRules(String rulesDirectory) {
+        return startContainerWithRules(rulesDirectory, "coraza");
+    }
+
+    /**
+     * Start the WAF container for the given engine flavor with the specified rules directory.
+     *
+     * @param rulesDirectory the directory containing the generated rules (main.conf + *Api.conf)
+     * @param engineFlavor   "coraza" or "modsecurity3"
+     * @return the base URL of the started container
+     */
+    public static String startContainerWithRules(String rulesDirectory, String engineFlavor) {
         if (configService.isHttpCallsSkipped()) {
             logger.info("Skipping container startup; skip.http.calls is enabled");
             return "http://localhost:8080";
         }
-        String image = configService.getContainerImage();
-        containerManager = new CorazaContainerManager(rulesDirectory, image);
-        logger.info("Starting Coraza container with rules from: {}", rulesDirectory);
+        if ("modsecurity3".equals(engineFlavor)) {
+            containerManager = new ModSecurityContainerManager(rulesDirectory);
+        } else {
+            containerManager = new CorazaContainerManager(rulesDirectory, configService.getContainerImage());
+        }
+        logger.info("Starting {} container with rules from: {}", engineFlavor, rulesDirectory);
         String baseUrl = containerManager.start();
         verifyContainerHealth(baseUrl);
         return baseUrl;
     }
 
     /**
-     * Verify the Coraza container is healthy by polling the base URL.
+     * Verify the WAF container is healthy by polling the base URL. With rules loaded,
+     * / is an undefined endpoint, so a 403 (default deny) also proves the WAF is up.
      *
      * @param baseUrl the base URL of the container
      */
@@ -48,7 +65,7 @@ public class ContainerAction {
             try {
                 logger.info("Health check attempt {} for {}", i + 1, baseUrl);
                 Response response = RestAssured.get(baseUrl);
-                if (response.getStatusCode() == 200) {
+                if (response.getStatusCode() == 200 || response.getStatusCode() == 403) {
                     serverReady = true;
                     break;
                 }
@@ -62,15 +79,15 @@ public class ContainerAction {
                 break;
             }
         }
-        Assert.assertTrue(serverReady, "Coraza server failed health check at " + baseUrl);
+        Assert.assertTrue(serverReady, "WAF server failed health check at " + baseUrl);
     }
 
     /**
-     * Stop the Coraza container.
+     * Stop the WAF container.
      */
     public static void stopContainer() {
         if (containerManager != null) {
-            logger.info("Stopping Coraza container");
+            logger.info("Stopping WAF container");
             containerManager.stop();
         }
     }

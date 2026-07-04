@@ -25,8 +25,21 @@ public class RuleGenerationAction {
      * @return the output directory path
      */
     public static String generateAndVerifyRules(String specPath, String outputDir, boolean useJsonSchema) {
-        logger.info("Generating rules with JSON Schema={}", useJsonSchema);
-        String result = RuleGenerationUtil.generateRules(specPath, outputDir, useJsonSchema);
+        return generateAndVerifyRules(specPath, outputDir, useJsonSchema, "coraza");
+    }
+
+    /**
+     * Generate rules for the given engine flavor and verify the generated files.
+     *
+     * @param specPath      path to the OpenAPI specification
+     * @param outputDir     directory where rules are generated
+     * @param useJsonSchema whether body validation is enabled
+     * @param engineFlavor  "coraza" or "modsecurity3"
+     * @return the output directory path
+     */
+    public static String generateAndVerifyRules(String specPath, String outputDir, boolean useJsonSchema, String engineFlavor) {
+        logger.info("Generating rules for {} with JSON Schema={}", engineFlavor, useJsonSchema);
+        String result = RuleGenerationUtil.generateRules(specPath, outputDir, useJsonSchema, engineFlavor);
         verifyRuleFiles(outputDir, useJsonSchema);
         return result;
     }

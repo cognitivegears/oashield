@@ -27,6 +27,20 @@ public class RuleGenerationUtil {
      * @throws RuntimeException if rule generation fails
      */
     public static String generateRules(String openApiSpecPath, String outputDir, boolean useJsonSchema) {
+        return generateRules(openApiSpecPath, outputDir, useJsonSchema, "coraza");
+    }
+
+    /**
+     * Generates rules from an OpenAPI spec file for the given engine flavor.
+     *
+     * @param openApiSpecPath The path to the OpenAPI specification file
+     * @param outputDir       The directory where the rules should be generated
+     * @param useJsonSchema   Whether body validation (schema + per-field rules) is enabled
+     * @param engineFlavor    "coraza" or "modsecurity3"
+     * @return The path to the generated rules directory
+     * @throws RuntimeException if rule generation fails
+     */
+    public static String generateRules(String openApiSpecPath, String outputDir, boolean useJsonSchema, String engineFlavor) {
         try {
             // Ensure output directory exists
             Files.createDirectories(Paths.get(outputDir));
@@ -35,11 +49,18 @@ public class RuleGenerationUtil {
             final CodegenConfigurator configurator = new CodegenConfigurator()
                     .setGeneratorName("modsecurity3")
                     .setInputSpec(openApiSpecPath)
-                    .setOutputDir(outputDir);
+                    .setOutputDir(outputDir)
+                    .addAdditionalProperty("engineFlavor", engineFlavor);
 
-            // Add additional properties if needed
+            if ("coraza".equals(engineFlavor)) {
+                // The Coraza test server resolves @validateSchema paths relative to its
+                // /app working directory; the rules dir is mounted at /app/rules.
+                configurator.addAdditionalProperty("schemaRulePath", "rules/schema.json");
+            }
+
             if (!useJsonSchema) {
-                configurator.addAdditionalProperty("skipJsonSchema", "true");
+                configurator.addAdditionalProperty("validateBodySchema", "false");
+                configurator.addAdditionalProperty("generateJsonSchema", "false");
             }
 
             final List<File> files = new DefaultGenerator()

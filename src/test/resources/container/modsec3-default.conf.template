@@ -1,0 +1,14 @@
+server {
+    listen 8081;
+    location / {
+        return 200 'OK';
+    }
+}
+server {
+    listen 8080;
+    modsecurity on;
+    modsecurity_rules_file /etc/modsecurity.d/oashield/main.conf;
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+    }
+}
