@@ -55,6 +55,17 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     // generally differs from the rules directory (e.g. "rules/schema.json").
     private String schemaRulePath = null;
 
+    // Deny behavior and logging (issue #16). denyAction is the disruptive action
+    // SecDefaultAction applies when a generated rule blocks: deny (with denyStatus),
+    // drop, redirect (to denyRedirectUrl), or pass (detection-only).
+    private String denyAction = "deny";
+    private int denyStatus = 403;
+    private String denyRedirectUrl = null;
+    private boolean enableLogging = true;
+    // false = emit no SecRuleEngine/SecRequestBodyAccess/SecDefaultAction, for
+    // deployments whose existing ModSecurity config already sets them
+    private boolean includeEngineConfig = true;
+
     /**
      * Process the CLI options passed to the generator.
      *
@@ -100,6 +111,69 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
             schemaRulePath = additionalProperties.get("schemaRulePath").toString();
         }
         additionalProperties.put("schemaRulePath", schemaRulePath != null ? schemaRulePath : jsonSchemaOutputFile);
+
+        if (additionalProperties.containsKey("denyAction")) {
+            denyAction = additionalProperties.get("denyAction").toString();
+            if (!Arrays.asList("deny", "drop", "pass", "redirect").contains(denyAction)) {
+                throw new IllegalArgumentException(
+                    "Unknown denyAction '" + denyAction + "'; expected 'deny', 'drop', 'pass' or 'redirect'");
+            }
+            LOGGER.info("denyAction set to: {}", denyAction);
+        }
+
+        if (additionalProperties.containsKey("denyStatus")) {
+            try {
+                denyStatus = Integer.parseInt(additionalProperties.get("denyStatus").toString());
+            } catch (NumberFormatException e) {
+                denyStatus = -1;
+            }
+            if (denyStatus < 100 || denyStatus > 599) {
+                throw new IllegalArgumentException(
+                    "Invalid denyStatus '" + additionalProperties.get("denyStatus") + "'; expected an HTTP status code (100-599)");
+            }
+            LOGGER.info("denyStatus set to: {}", denyStatus);
+        }
+
+        if (additionalProperties.containsKey("denyRedirectUrl")) {
+            denyRedirectUrl = additionalProperties.get("denyRedirectUrl").toString();
+            if (!denyRedirectUrl.matches("^https?://[^\\s\"']+$")) {
+                throw new IllegalArgumentException(
+                    "Invalid denyRedirectUrl '" + denyRedirectUrl + "'; expected an absolute http(s) URL");
+            }
+        }
+        if ("redirect".equals(denyAction) && denyRedirectUrl == null) {
+            throw new IllegalArgumentException("denyAction=redirect requires denyRedirectUrl");
+        }
+
+        if (additionalProperties.containsKey("enableLogging")) {
+            enableLogging = Boolean.parseBoolean(additionalProperties.get("enableLogging").toString());
+            LOGGER.info("enableLogging set to: {}", enableLogging);
+        }
+
+        if (additionalProperties.containsKey("includeEngineConfig")) {
+            includeEngineConfig = Boolean.parseBoolean(additionalProperties.get("includeEngineConfig").toString());
+            LOGGER.info("includeEngineConfig set to: {}", includeEngineConfig);
+        }
+
+        // Real boolean for the mustache section; derived strings so templates stay flat
+        additionalProperties.put("includeEngineConfig", includeEngineConfig);
+        additionalProperties.put("logAction", enableLogging ? "log,auditlog" : "nolog");
+        additionalProperties.put("denyActionDirective", buildDenyActionDirective());
+    }
+
+    /**
+     * The disruptive-action fragment of SecDefaultAction: deny/redirect carry a
+     * status, drop/pass ignore it.
+     */
+    private String buildDenyActionDirective() {
+        switch (denyAction) {
+            case "deny":
+                return "deny,status:" + denyStatus;
+            case "redirect":
+                return "redirect:'" + denyRedirectUrl + "',status:" + denyStatus;
+            default:
+                return denyAction;
+        }
     }
 
   private static final Logger LOGGER = LoggerFactory.getLogger(Modsecurity3Generator.class);
@@ -918,6 +992,26 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
         "Schema file path as referenced from the generated @validateSchema rule (coraza flavor); "
             + "resolved by Coraza relative to the server working directory")
         .defaultValue(jsonSchemaOutputFile));
+
+    // Deny behavior and logging options (issue #16)
+    additionalProperties.put("includeEngineConfig", includeEngineConfig);
+    additionalProperties.put("logAction", "log,auditlog");
+    additionalProperties.put("denyActionDirective", "deny,status:" + denyStatus);
+    cliOptions.add(new CliOption("denyAction",
+        "Disruptive action applied when a rule blocks: 'deny', 'drop', 'redirect' or 'pass' (detection-only)")
+        .defaultValue(denyAction));
+    cliOptions.add(new CliOption("denyStatus",
+        "HTTP status returned on deny (use a 3xx with denyAction=redirect)")
+        .defaultValue(Integer.toString(denyStatus)));
+    cliOptions.add(new CliOption("denyRedirectUrl",
+        "Absolute URL to redirect to; required when denyAction=redirect"));
+    cliOptions.add(new CliOption("enableLogging",
+        "Emit log,auditlog on generated rules; false emits nolog")
+        .defaultValue(Boolean.toString(enableLogging)));
+    cliOptions.add(new CliOption("includeEngineConfig",
+        "Emit SecRuleEngine/SecRequestBodyAccess/SecDefaultAction in mainconfig.conf; "
+            + "set false when your existing WAF configuration already defines them")
+        .defaultValue(Boolean.toString(includeEngineConfig)));
 
     /**
      * Supporting Files. You can write single files for the generator with the

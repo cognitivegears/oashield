@@ -13,6 +13,11 @@ the known limitations of request-body validation.
 | `generateJsonSchema` | `true` | Emit the JSON Schema file |
 | `jsonSchemaOutputFile` | `schema.json` | JSON Schema file name |
 | `schemaRulePath` | same as `jsonSchemaOutputFile` | Schema path written inside the `@validateSchema` rule. Coraza resolves it relative to the **server process working directory**, not the rules directory |
+| `denyAction` | `deny` | What happens when a rule blocks: `deny`, `drop`, `redirect`, or `pass` (detection-only: violations are logged but requests go through) |
+| `denyStatus` | `403` | HTTP status returned on deny (100–599). With `denyAction=redirect`, set a 3xx — non-3xx values make the engine fall back to 302 |
+| `denyRedirectUrl` | — | Absolute http(s) URL to redirect blocked requests to; required when `denyAction=redirect` |
+| `enableLogging` | `true` | Emit `log,auditlog` on generated rules; `false` emits `nolog` instead |
+| `includeEngineConfig` | `true` | Emit `SecRuleEngine On`, `SecRequestBodyAccess On`, and the `SecDefaultAction` in `mainconfig.conf`. Set `false` when your existing WAF configuration already defines these |
 
 Pass them comma-separated:
 
@@ -20,6 +25,29 @@ Pass them comma-separated:
 ... generate -g modsecurity3 -i api.yaml -o out \
   --additional-properties engineFlavor=coraza,schemaRulePath=rules/schema.json
 ```
+
+## Deny behavior and logging
+
+Every generated rule uses the `block` action, so the actual disruptive
+behavior is decided in one place: the `SecDefaultAction` emitted at the top of
+`mainconfig.conf`. `denyAction`/`denyStatus`/`denyRedirectUrl` control that
+line:
+
+```bash
+# Return 429 instead of 403
+--additional-properties denyStatus=429
+
+# Detection-only: log violations, let requests through
+--additional-properties denyAction=pass
+
+# Redirect blocked requests
+--additional-properties denyAction=redirect,denyRedirectUrl=https://example.com/blocked,denyStatus=302
+```
+
+If your ModSecurity/Coraza deployment already configures the engine (rule
+engine mode, body access, default action), generate only the rules with
+`includeEngineConfig=false` — your existing `SecDefaultAction` then decides
+what blocking means.
 
 ## Engine flavors
 
