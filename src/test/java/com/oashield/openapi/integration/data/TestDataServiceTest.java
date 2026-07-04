@@ -94,7 +94,7 @@ class TestDataServiceTest {
     void testParseSpecNameValid() throws Exception {
         Method method = TestDataService.class.getDeclaredMethod("parseSpecName", String.class);
         method.setAccessible(true);
-        assertEquals("petstore", method.invoke(service, "petstore:/pet"));
+        assertEquals("petstore", method.invoke(service, "petstore:/v2/pet"));
         assertEquals("getparam", method.invoke(service, "getparam:/pet/findByStatus"));
     }
 
@@ -114,7 +114,7 @@ class TestDataServiceTest {
     void testParseEndpointPathValid() throws Exception {
         Method method = TestDataService.class.getDeclaredMethod("parseEndpointPath", String.class);
         method.setAccessible(true);
-        assertEquals("pet", method.invoke(service, "petstore:/pet"));
+        assertEquals("v2/pet", method.invoke(service, "petstore:/v2/pet"));
         assertEquals("pet/findByStatus",
                 method.invoke(service, "getparam:/pet/findByStatus"));
     }
@@ -133,18 +133,18 @@ class TestDataServiceTest {
 
     @Test
     void testGetValidRequestBody() throws Exception {
-        String result = service.getValidRequestBody("petstore:/pet");
+        String result = service.getValidRequestBody("petstore:/v2/pet");
         String testDataDir = TestConfigurationService.getInstance().getTestDataDirectory();
-        Path path = Paths.get(testDataDir, "test-data", "petstore", "pet", "valid.json");
+        Path path = Paths.get(testDataDir, "test-data", "petstore", "v2", "pet", "valid.json");
         String expected = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
         assertEquals(expected, result);
     }
 
     @Test
     void testGetInvalidRequestBody() {
-        String result = service.getInvalidRequestBody("petstore:/pet", "missing_required");
+        String result = service.getInvalidRequestBody("petstore:/v2/pet", "missing_required");
         String testDataDir = TestConfigurationService.getInstance().getTestDataDirectory();
-        Path path = Paths.get(testDataDir, "test-data", "petstore", "pet", "invalid",
+        Path path = Paths.get(testDataDir, "test-data", "petstore", "v2", "pet", "invalid",
                 "missing_required.json");
         try {
             String expected = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
@@ -159,7 +159,7 @@ class TestDataServiceTest {
         assertThrows(TemplateNotFoundException.class,
                 () -> service.getValidRequestBody("petstore:/nonexistent"));
         assertThrows(TemplateNotFoundException.class,
-                () -> service.getInvalidRequestBody("petstore:/pet", "nonexistent"));
+                () -> service.getInvalidRequestBody("petstore:/v2/pet", "nonexistent"));
     }
 
     @Test
@@ -187,9 +187,9 @@ class TestDataServiceTest {
         Map<?, ?> cache = (Map<?, ?>) cacheField.get(service);
         cache.clear();
         assertTrue(cache.isEmpty());
-        service.getValidRequestBody("petstore:/pet");
+        service.getValidRequestBody("petstore:/v2/pet");
         assertEquals(1, cache.size());
-        service.getValidRequestBody("petstore:/pet");
+        service.getValidRequestBody("petstore:/v2/pet");
         assertEquals(1, cache.size());
     }
 

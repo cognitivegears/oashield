@@ -1,0 +1,26 @@
+{
+  "$schema" : "http://json-schema.org/draft-07/schema#",
+  "title" : "OpenAPI Schema Definitions",
+  "description" : "JSON Schema definitions generated from OpenAPI specification",
+  "definitions" : {
+    "createWidget_request" : {
+      "title" : "createWidget_request",
+      "type" : "object",
+      "properties" : {
+        "price" : {
+          "type" : "integer",
+          "multipleOf" : 100
+        },
+        "labels" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string"
+          },
+          "minItems" : 1,
+          "maxItems" : 3
+        }
+      },
+      "required" : [ "labels" ]
+    }
+  }
+}

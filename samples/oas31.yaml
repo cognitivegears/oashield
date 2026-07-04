@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info:
+  title: OpenAPI 3.1 long-tail features
+  description: const, prefixItems, patternProperties, dependentRequired, if/then/else, content params
+  version: "1.0"
+paths:
+  /events:
+    post:
+      operationId: createEvent
+      parameters:
+        - name: meta
+          in: query
+          content:
+            application/json:
+              schema:
+                type: object
+                maxLength: 512
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+      responses:
+        "200":
+          description: ok
+components:
+  schemas:
+    Event:
+      type: object
+      required: [kind]
+      dependentRequired:
+        end: [start]
+      if:
+        properties:
+          kind:
+            const: reminder
+      then:
+        required: [start]
+      properties:
+        kind:
+          const: reminder
+        start:
+          type: string
+        end:
+          type: string
+        window:
+          type: array
+          prefixItems:
+            - type: integer
+            - type: integer
+        labels:
+          type: object
+          patternProperties:
+            '^x-':
+              type: integer
+        note:
+          type: [string, "null"]

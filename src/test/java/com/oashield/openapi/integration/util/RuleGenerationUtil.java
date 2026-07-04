@@ -98,9 +98,10 @@ public class RuleGenerationUtil {
                 Files.createDirectories(Paths.get(schemasDir));
                 String rulesDirPath = outputDir + "/rules";
 
-                // Copy all JSON schema files to the schemas directory
+                // Copy all schema files (JSON Schema + any generated XSD) to the
+                // schemas directory
                 Files.list(Paths.get(outputDir))
-                        .filter(path -> path.toString().endsWith(".json"))
+                        .filter(path -> path.toString().endsWith(".json") || path.toString().endsWith(".xsd"))
                         .forEach(src -> {
                             try {
                                 Path dest = Paths.get(schemasDir, src.getFileName().toString());

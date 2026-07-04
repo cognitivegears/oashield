@@ -1,0 +1,94 @@
+{
+  "$schema" : "http://json-schema.org/draft-07/schema#",
+  "title" : "OpenAPI Schema Definitions",
+  "description" : "JSON Schema definitions generated from OpenAPI specification",
+  "definitions" : {
+    "Animal" : {
+      "title" : "Animal",
+      "type" : "object",
+      "properties" : {
+        "species" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "species" ]
+    },
+    "Contact" : {
+      "title" : "Contact",
+      "type" : "object",
+      "properties" : {
+        "name" : {
+          "type" : "string"
+        },
+        "id" : {
+          "$ref" : "#/definitions/Contact_id"
+        },
+        "contactMethod" : {
+          "$ref" : "#/definitions/Contact_contactMethod"
+        }
+      },
+      "required" : [ "name" ]
+    },
+    "Contact_contactMethod" : {
+      "title" : "Contact_contactMethod",
+      "oneOf" : [ {
+        "$ref" : "#/definitions/EmailContact"
+      }, {
+        "$ref" : "#/definitions/PhoneContact"
+      } ]
+    },
+    "Contact_id" : {
+      "title" : "Contact_id",
+      "anyOf" : [ {
+        "type" : "integer"
+      }, {
+        "type" : "string",
+        "format" : "uuid"
+      } ]
+    },
+    "Dog" : {
+      "title" : "Dog",
+      "type" : "object",
+      "properties" : {
+        "species" : {
+          "type" : "string"
+        },
+        "breed" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "species" ]
+    },
+    "EmailContact" : {
+      "title" : "EmailContact",
+      "type" : "object",
+      "properties" : {
+        "email" : {
+          "type" : "string",
+          "format" : "email"
+        }
+      },
+      "required" : [ "email" ]
+    },
+    "findItems_code_parameter" : {
+      "title" : "findItems_code_parameter",
+      "oneOf" : [ {
+        "type" : "integer"
+      }, {
+        "type" : "string",
+        "enum" : [ "red", "green", "blue" ]
+      } ]
+    },
+    "PhoneContact" : {
+      "title" : "PhoneContact",
+      "type" : "object",
+      "properties" : {
+        "phone" : {
+          "type" : "string",
+          "pattern" : "^[0-9]{10}$"
+        }
+      },
+      "required" : [ "phone" ]
+    }
+  }
+}

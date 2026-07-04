@@ -13,6 +13,9 @@ SecRule REQUEST_METHOD "!@within {{httpMethod}}" "id:{{vendorExtensions.x-codege
 {{#pattern}}
 {{#isQueryParam}}
 SecRule ARGS_GET:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_6}},phase:2,block,msg:'Forbidden parameter value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{#required}}
+SecRule &ARGS_GET:{{paramName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_22}},phase:2,block,msg:'Missing required parameter {{paramName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/required}}
 {{^isArray}}
 SecRule &ARGS_GET:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_7}},phase:2,block,msg:'Multiple values for non-array parameter',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/isArray}}
@@ -31,6 +34,9 @@ SecRule ARGS_GET:{{paramName}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{^
 {{/isQueryParam}}
 {{#isFormParam}}
 SecRule ARGS_POST:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_10}},phase:2,block,msg:'Forbidden parameter value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{#required}}
+SecRule &ARGS_POST:{{paramName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_23}},phase:2,block,msg:'Missing required parameter {{paramName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/required}}
 {{^isArray}}
 SecRule &ARGS_POST:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_11}},phase:2,block,msg:'Multiple values for non-array parameter',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/isArray}}
@@ -41,6 +47,18 @@ SecRule ARGS_POST:{{paramName}} "{{#exclusiveMinimum}}@le{{/exclusiveMinimum}}{{
 SecRule ARGS_POST:{{paramName}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{^exclusiveMaximum}}@gt{{/exclusiveMaximum}} {{maximum}}" "id:{{vendorExtensions.x-codegen-globalIndex_13}},phase:2,block,msg:'Parameter value above maximum',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/maximum}}
 {{/isFormParam}}
+{{#isHeaderParam}}
+SecRule REQUEST_HEADERS:{{baseName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_18}},phase:2,block,msg:'Forbidden header value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{#required}}
+SecRule &REQUEST_HEADERS:{{baseName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_19}},phase:2,block,msg:'Missing required header {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/required}}
+{{/isHeaderParam}}
+{{#isCookieParam}}
+SecRule REQUEST_COOKIES:{{baseName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_20}},phase:2,block,msg:'Forbidden cookie value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{#required}}
+SecRule &REQUEST_COOKIES:{{baseName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_21}},phase:2,block,msg:'Missing required cookie {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/required}}
+{{/isCookieParam}}
 {{/pattern}}
 {{/allParams}}
 
@@ -48,21 +66,32 @@ SecRule ARGS_POST:{{paramName}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{
 # names on both engines, so one allowlist covers them all.
 SecRule ARGS_NAMES "!@rx ^(?:{{vendorExtensions.x-codegen-argsAllowlist}})$" "id:{{vendorExtensions.x-codegen-globalIndex_14}},phase:2,block,msg:'Unknown parameter detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
 
-# Handle Models
+# Handle request bodies by declared media type
+{{#vendorExtensions.x-codegen-optionalBody}}
+# requestBody is optional (the OAS3 default): a request without a body skips body checks
+SecRule &REQUEST_HEADERS:Content-Type "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_26}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
+{{/vendorExtensions.x-codegen-optionalBody}}
 {{#consumes}}
 {{#isJson}}
-SecRule REQUEST_HEADERS:Content-Type "!@rx ^{{mediaTypeRegex}}" "id:{{vendorExtensions.x-codegen-globalIndex_16}},phase:2,pass,nolog,skipAfter:ENDJSON_{{operationId}}"
+SecRule REQUEST_HEADERS:Content-Type "!@rx ^{{mediaTypeRegex}}" "id:{{oasGateId}},phase:2,pass,nolog,skipAfter:ENDMEDIA_{{operationId}}_{{consumeIndex}}"
 # ModSecurity3 flags unparseable bodies here; Coraza does not set REQBODY_ERROR,
 # but its @validateSchema rule below rejects malformed JSON instead.
-SecRule REQBODY_ERROR "!@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_17}},phase:2,block,msg:'Failed to parse request body',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule REQBODY_ERROR "!@eq 0" "id:{{oasBodyErrId}},phase:2,block,msg:'Failed to parse request body',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{#vendorExtensions.validateBodySchema}}
 {{#allParams}}
 {{#isBodyParam}}
+{{#vendorExtensions.x-oashield-dependentRules}}
+SecRule &ARGS:{{trigger}} "@gt 0" "id:{{depRuleId}},phase:2,block,msg:'Property {{trigger}} requires {{dependent}}',{{logAction}},skipAfter:FAILED_API_CHECKS,chain"
+SecRule &ARGS:{{dependent}} "@eq 0" "t:none"
+{{/vendorExtensions.x-oashield-dependentRules}}
 {{#vendorExtensions.x-codegen-modelProperties}}
+{{#vendorExtensions.x-oashield-patternProps}}
+SecRule ARGS:{{selector}} "!@rx {{valuePattern}}" "id:{{ruleId}},phase:2,block,msg:'Invalid value for patternProperties key under {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/vendorExtensions.x-oashield-patternProps}}
 {{#vendorExtensions.x-oashield-requiredRule}}
 {{#vendorExtensions.x-oashield-parentSelector}}
 SecRule &ARGS:{{vendorExtensions.x-oashield-parentSelector}} "@gt 0" "id:{{vendorExtensions.x-codegen-propIndex_1}},phase:2,block,msg:'Missing required property {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS,chain"
-SecRule &ARGS:{{vendorExtensions.x-oashield-argTarget}} "@eq 0"
+SecRule &ARGS:{{vendorExtensions.x-oashield-argTarget}} "@eq 0" "t:none"
 {{/vendorExtensions.x-oashield-parentSelector}}
 {{^vendorExtensions.x-oashield-parentSelector}}
 SecRule &ARGS:{{vendorExtensions.x-oashield-argTarget}} "@eq 0" "id:{{vendorExtensions.x-codegen-propIndex_1}},phase:2,block,msg:'Missing required property {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
@@ -77,36 +106,72 @@ SecRule ARGS:{{vendorExtensions.x-oashield-argTarget}} "{{#exclusiveMinimum}}@le
 {{#maximum}}
 SecRule ARGS:{{vendorExtensions.x-oashield-argTarget}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{^exclusiveMaximum}}@gt{{/exclusiveMaximum}} {{maximum}}" "id:{{vendorExtensions.x-codegen-propIndex_4}},phase:2,block,msg:'Property value above maximum for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/maximum}}
+{{#vendorExtensions.x-oashield-countMin}}
+SecRule &ARGS:{{vendorExtensions.x-oashield-countSelector}} "@lt {{vendorExtensions.x-oashield-countMin}}" "id:{{vendorExtensions.x-codegen-propIndex_5}},phase:2,block,msg:'Too few array elements for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/vendorExtensions.x-oashield-countMin}}
+{{#vendorExtensions.x-oashield-countMax}}
+SecRule &ARGS:{{vendorExtensions.x-oashield-countSelector}} "@gt {{vendorExtensions.x-oashield-countMax}}" "id:{{vendorExtensions.x-codegen-propIndex_6}},phase:2,block,msg:'Too many array elements for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/vendorExtensions.x-oashield-countMax}}
 {{/vendorExtensions.x-codegen-modelProperties}}
 {{/isBodyParam}}
 {{/allParams}}
 {{#isCoraza}}
 # Coraza implements @validateSchema for JSON Schema; ModSecurity3's is XSD-only,
 # which is why the modsecurity3 flavor relies on the per-field rules above.
-SecRule REQUEST_BODY "@validateSchema {{schemaRulePath}}" "id:{{vendorExtensions.x-codegen-globalIndex_18}},phase:2,block,msg:'JSON schema validation failed for {{operationId}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule REQUEST_BODY "@validateSchema {{schemaRulePath}}" "id:{{oasSchemaId}},phase:2,block,msg:'JSON schema validation failed for {{operationId}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/isCoraza}}
 {{/vendorExtensions.validateBodySchema}}
-SecAction "id:{{vendorExtensions.x-codegen-globalIndex_19}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
+SecAction "id:{{oasPassId}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
 
-SecMarker ENDJSON_{{operationId}}
+SecMarker ENDMEDIA_{{operationId}}_{{consumeIndex}}
 {{/isJson}}
 {{#isXml}}
-SecRule REQUEST_HEADERS:Content-Type "!@rx ^{{mediaTypeRegex}}" "id:{{vendorExtensions.x-codegen-globalIndex_20}},phase:2,pass,nolog,skipAfter:ENDXML_{{operationId}}"
-SecRule REQBODY_ERROR "!@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_23}},phase:2,block,msg:'Failed to parse request body',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule REQUEST_HEADERS:Content-Type "!@rx ^{{mediaTypeRegex}}" "id:{{oasGateId}},phase:2,pass,nolog,skipAfter:ENDMEDIA_{{operationId}}_{{consumeIndex}}"
+SecRule REQBODY_ERROR "!@eq 0" "id:{{oasBodyErrId}},phase:2,block,msg:'Failed to parse request body',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{#validateXmlSchema}}
+{{#isModsec3}}
+# XSD validation is opt-in: current libmodsecurity3 fails to load XSDs at request
+# time (docs/engine-behavior.md); enable only on an engine build where it works.
+SecRule XML "@validateSchema {{xsdRulePath}}" "id:{{oasSchemaId}},phase:2,block,msg:'XML schema validation failed for {{operationId}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/isModsec3}}
+{{/validateXmlSchema}}
+SecAction "id:{{oasPassId}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
 
-# TODO: Implement XML schema validation (issue #14 covers JSON objects)
-SecAction "id:{{vendorExtensions.x-codegen-globalIndex_24}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
-
-SecMarker ENDXML_{{operationId}}
+SecMarker ENDMEDIA_{{operationId}}_{{consumeIndex}}
 {{/isXml}}
+{{#isFormLike}}
+# form-urlencoded/multipart: text fields land in ARGS_POST on both engines and are
+# validated by the parameter rules and ARGS_NAMES allowlist above
+SecRule REQUEST_HEADERS:Content-Type "!@rx ^{{mediaTypeRegex}}" "id:{{oasGateId}},phase:2,pass,nolog,skipAfter:ENDMEDIA_{{operationId}}_{{consumeIndex}}"
+SecRule REQBODY_ERROR "!@eq 0" "id:{{oasBodyErrId}},phase:2,block,msg:'Failed to parse request body',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecAction "id:{{oasPassId}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
+
+SecMarker ENDMEDIA_{{operationId}}_{{consumeIndex}}
+{{/isFormLike}}
+{{#isOtherMedia}}
+# Declared media type the WAF cannot inspect; handling set by unknownMediaTypePolicy
+SecRule REQUEST_HEADERS:Content-Type "!@rx ^{{mediaTypeRegex}}" "id:{{oasGateId}},phase:2,pass,nolog,skipAfter:ENDMEDIA_{{operationId}}_{{consumeIndex}}"
+{{#blockOtherMedia}}
+SecAction "id:{{oasPassId}},phase:2,block,msg:'Uninspectable media type blocked by policy',{{logAction}},skipAfter:FAILED_API_CHECKS"
+{{/blockOtherMedia}}
+{{^blockOtherMedia}}
+SecAction "id:{{oasPassId}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
+{{/blockOtherMedia}}
+
+SecMarker ENDMEDIA_{{operationId}}_{{consumeIndex}}
+{{/isOtherMedia}}
+{{#isWildcardAll}}
+# consumes */*: any media type is accepted
+SecAction "id:{{oasPassId}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
+{{/isWildcardAll}}
 {{/consumes}}
 
 {{^consumes}}
 SecAction "id:{{vendorExtensions.x-codegen-globalIndex_25}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
 {{/consumes}}
 
-# Action has consumes, but it wasn't matched - validation must have failed for both JSON and XML
-SecAction "id:{{vendorExtensions.x-codegen-globalIndex_21}},{{logAction}},block,phase:2,msg:'Body processing failed - invalid data content?'"
+# Declared consumes exist but the request Content-Type matched none of them
+SecAction "id:{{vendorExtensions.x-codegen-globalIndex_21}},{{logAction}},block,phase:2,msg:'Unexpected content type'"
 
 
 SecMarker AFTER_CONSUMES_{{operationId}}
