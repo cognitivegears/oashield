@@ -62,7 +62,7 @@ docker info
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-org/oashield.git
+   git clone https://github.com/cognitivegears/oashield.git
    cd oashield
    ```
 2. Build and run all integration tests:
@@ -220,5 +220,15 @@ mvn test -Dcontainer.image=ghcr.io/myorg/custom-coraza:1.0
 mvn test -Doutput.directory.base=/tmp/oashield-results
 ```
 
---
-_Documentation generated on 2025-06-24_
+## Continuous Integration
+
+This project uses GitHub Actions:
+
+- **OAShield Tests** — runs on all PRs and pushes to `main`, executing unit and
+  integration tests.
+- **OAShield CLI Build** — builds the CLI JAR and verifies it.
+- **OAShield CI** — comprehensive workflow that builds, tests, and verifies both
+  the library and the CLI.
+
+CI runs skip HTTP calls (`skip.http.calls=true`) for compatibility with the CI
+environment.
