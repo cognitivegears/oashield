@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.oashield.openapi.generators.modsecurity3.types.JsonSchemaTypeMapper;
+import org.openapitools.codegen.CodegenComposedSchemas;
 import org.openapitools.codegen.CodegenModel;
 import org.openapitools.codegen.CodegenProperty;
 import org.openapitools.codegen.model.ModelMap;
@@ -94,6 +95,20 @@ public class JsonSchemaGenerator {
                 schemaNode.put("description", model.description);
             }
 
+            // oneOf/anyOf composition: emit the composition keyword instead of a plain
+            // object schema (allOf models already arrive with their vars merged).
+            CodegenComposedSchemas composed = model.getComposedSchemas();
+            List<CodegenProperty> oneOf = composed != null ? composed.getOneOf() : null;
+            List<CodegenProperty> anyOf = composed != null ? composed.getAnyOf() : null;
+            if ((oneOf != null && !oneOf.isEmpty()) || (anyOf != null && !anyOf.isEmpty())) {
+                boolean isOneOf = oneOf != null && !oneOf.isEmpty();
+                ArrayNode members = schemaNode.putArray(isOneOf ? "oneOf" : "anyOf");
+                for (CodegenProperty member : (isOneOf ? oneOf : anyOf)) {
+                    members.add(composedMemberSchema(member));
+                }
+                return schemaNode;
+            }
+
             // Set type to object
             schemaNode.put("type", "object");
 
@@ -112,6 +127,42 @@ public class JsonSchemaGenerator {
             log.error("Error processing model: {}", model.name, e);
             return null;
         }
+    }
+
+    /**
+     * Build the schema for one oneOf/anyOf member: a $ref for model members, an
+     * inline primitive schema (type/format/enum/constraints) otherwise.
+     *
+     * @param member The composed schema member
+     * @return An ObjectNode representing the member schema
+     */
+    private ObjectNode composedMemberSchema(CodegenProperty member) {
+        ObjectNode node = objectMapper.createObjectNode();
+        if (member.isNull) {
+            node.put("type", "null");
+            return node;
+        }
+        if (member.isModel && member.complexType != null && !isPrimitiveType(member.complexType)) {
+            node.put("$ref", "#/definitions/" + member.complexType);
+            return node;
+        }
+        // openApiType holds the raw OAS type (integer/number/string/boolean)
+        JsonSchemaTypeMapper.applyPrimitiveType(member.openApiType, node);
+        if (member.dataFormat != null && !member.dataFormat.isEmpty()) {
+            node.put("format", member.dataFormat);
+        }
+        if (member.allowableValues != null && member.allowableValues.containsKey("values")) {
+            @SuppressWarnings("unchecked")
+            List<String> enumValues = (List<String>) member.allowableValues.get("values");
+            if (enumValues != null && !enumValues.isEmpty()) {
+                ArrayNode enumNode = node.putArray("enum");
+                for (String value : enumValues) {
+                    enumNode.add(value);
+                }
+            }
+        }
+        processValidationConstraints(member, node);
+        return node;
     }
 
     /**
@@ -333,9 +384,10 @@ public class JsonSchemaGenerator {
             property.put("maxLength", var.getMaxLength());
         }
 
-        // Pattern
+        // Pattern (strip the /.../ delimiters DefaultCodegen wraps spec patterns in;
+        // JSON Schema patterns are undelimited)
         if (var.pattern != null) {
-            property.put("pattern", var.pattern);
+            property.put("pattern", Modsecurity3Generator.sanitizeSpecPattern(var.pattern));
         }
 
         // Minimum items (for arrays)

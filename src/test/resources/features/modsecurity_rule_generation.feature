@@ -67,6 +67,24 @@ Feature: ModSecurity Rule Generation and Testing
       | coraza       |
       | modsecurity3 |
 
+  Scenario Outline: Composed schema (anyOf / allOf / oneOf) validation
+    Given an OpenAPI specification file at "samples/composed.yaml"
+    When I generate rules with body validation for "<engine>"
+    And I start the WAF server with the generated rules
+    Then a GET request to "/items?code=5" should return a 200 status code
+    And a GET request to "/items?code=red" should return a 200 status code
+    And a GET request to "/items?code=purple" should be blocked with a 403 status code
+    And a POST request to "/contact" with a valid body should return a 200 status code
+    And a POST request to "/contact" with an invalid body "bad_id" should be blocked with a 403 status code
+    And a POST request to "/contact" with an invalid body "bad_phone" should be blocked with a 403 status code
+    And a POST request to "/dog" with a valid body should return a 200 status code
+    And a POST request to "/dog" with an invalid body "missing_required" should be blocked with a 403 status code
+
+    Examples:
+      | engine       |
+      | coraza       |
+      | modsecurity3 |
+
   Scenario Outline: Request body object validation
     Given an OpenAPI specification file at "samples/petstore.yaml"
     When I generate rules with body validation for "<engine>"

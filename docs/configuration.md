@@ -47,3 +47,12 @@ These apply to the `modsecurity3` flavor's per-field checks. Coraza's
   are covered only by the unknown-property allowlist.
 - **Numeric bounds on path parameters:** `minimum`/`maximum` on *path*
   parameters is enforced only lexically, via the embedded path pattern.
+- **`oneOf` / `anyOf` composition:** enforced as the *union* of the member
+  schemas. Primitive unions (including composed query/path parameters) are
+  validated against an alternation of the member patterns; model unions
+  validate and allowlist the properties of every branch, but `required`
+  properties inside a branch are not enforced (only one branch need be
+  present), and `oneOf`'s exactly-one semantics are not distinguished from
+  `anyOf`. `allOf` models are validated fully (members are merged). The
+  generated JSON Schema keeps the exact `oneOf`/`anyOf` keywords for
+  Coraza's `@validateSchema`.

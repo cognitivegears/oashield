@@ -1,0 +1,7 @@
+{
+  "name": "John Doe",
+  "id": 42,
+  "contactMethod": {
+    "phone": "not-a-phone"
+  }
+}
