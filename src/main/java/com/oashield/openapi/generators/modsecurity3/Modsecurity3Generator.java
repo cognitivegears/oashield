@@ -524,7 +524,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
   /**
    * Escape a literal string for safe embedding in an RE2/PCRE regex.
    */
-  static String escapeRegexLiteral(String literal) {
+  public static String escapeRegexLiteral(String literal) {
     return literal.replaceAll("([.^$+?*()\\[\\]{}|\\\\])", "\\\\$1");
   }
 
@@ -533,7 +533,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
    * it wraps them in /.../ delimiters and doubles backslashes, neither of which
    * belongs in a SecRule @rx operand.
    */
-  static String sanitizeSpecPattern(String pattern) {
+  public static String sanitizeSpecPattern(String pattern) {
     if (pattern == null) {
       return null;
     }
