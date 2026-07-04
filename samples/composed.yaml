@@ -1,0 +1,93 @@
+openapi: 3.0.3
+info:
+  title: Composed Schemas API
+  description: Sample API exercising anyOf / allOf / oneOf compositions
+  version: 1.0.0
+paths:
+  /contact:
+    post:
+      operationId: addContact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Contact'
+      responses:
+        '200':
+          description: OK
+  /dog:
+    post:
+      operationId: addDog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Dog'
+      responses:
+        '200':
+          description: OK
+  /items:
+    get:
+      operationId: findItems
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            oneOf:
+              - type: integer
+              - type: string
+                enum: [red, green, blue]
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Contact:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        id:
+          anyOf:
+            - type: integer
+            - type: string
+              format: uuid
+        contactMethod:
+          oneOf:
+            - $ref: '#/components/schemas/EmailContact'
+            - $ref: '#/components/schemas/PhoneContact'
+    EmailContact:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+    PhoneContact:
+      type: object
+      required:
+        - phone
+      properties:
+        phone:
+          type: string
+          pattern: '^[0-9]{10}$'
+    Animal:
+      type: object
+      required:
+        - species
+      properties:
+        species:
+          type: string
+    Dog:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          properties:
+            breed:
+              type: string

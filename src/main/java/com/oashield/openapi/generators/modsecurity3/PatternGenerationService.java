@@ -152,6 +152,35 @@ public class PatternGenerationService {
     }
 
     /**
+     * Builds a validation pattern for an anyOf/oneOf composition: a value is valid
+     * when it matches any member schema, so the member patterns are joined into one
+     * alternation. Members with a spec-provided pattern use it; others get their
+     * type-derived pattern.
+     *
+     * @param members the composed schema members (oneOf and/or anyOf entries)
+     * @param isRequired whether an empty value should be rejected
+     * @return an anchored alternation regex covering all members
+     */
+    public String getComposedPattern(List<CodegenProperty> members, boolean isRequired) {
+        List<String> alternatives = new java.util.ArrayList<>();
+        for (CodegenProperty member : members) {
+            if (member.isNull) {
+                continue;
+            }
+            String pattern = Modsecurity3Generator.sanitizeSpecPattern(member.pattern);
+            if (pattern == null || pattern.isEmpty()
+                    || pattern.contains("(?!") || pattern.contains("(?=") || pattern.contains("(?<")) {
+                pattern = getPropertyPattern(member);
+            }
+            alternatives.add(Modsecurity3Generator.stripAnchors(pattern));
+        }
+        if (alternatives.isEmpty()) {
+            return isRequired ? "^.+$" : "^.*$";
+        }
+        return "^(?:" + String.join("|", alternatives) + ")" + (isRequired ? "" : "?") + "$";
+    }
+
+    /**
      * Based on the type of parameter, returns the allowed input pattern.
      *
      * @param param The parameter to get the allowed input pattern for

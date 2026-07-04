@@ -1,0 +1,7 @@
+{
+  "name": "John Doe",
+  "id": "neither-integer-nor-uuid",
+  "contactMethod": {
+    "email": "john@example.com"
+  }
+}

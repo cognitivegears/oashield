@@ -368,10 +368,29 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
           // We need to flatten the model into something that can be used in the template
           // This will be a new vendor extension with an array of properties that represent
           // the model. Both engines flatten JSON bodies into ARGS as "json.<path>".
+          // Composed (allOf/oneOf/anyOf) body models carry no vars on the parameter
+          // itself; resolve them via the model list.
+          CodegenModel bodyModel = modelLookup.get(param.baseType);
+          if (bodyModel == null) {
+            bodyModel = modelLookup.get(param.dataType);
+          }
+          List<CodegenProperty> rootVars = param.vars;
+          if ((rootVars == null || rootVars.isEmpty()) && bodyModel != null) {
+            rootVars = bodyModel.vars;
+          }
           List<CodegenProperty> flattenedProperties = new ArrayList<CodegenProperty>();
-          for (CodegenProperty prop : param.vars) {
-            List<CodegenProperty> properties = flattenModel(prop, JSON_ARGS_PREFIX, 1, modelLookup);
-            flattenedProperties.addAll(properties);
+          if (rootVars != null) {
+            for (CodegenProperty prop : rootVars) {
+              List<CodegenProperty> properties = flattenModel(prop, JSON_ARGS_PREFIX, 1, modelLookup);
+              flattenedProperties.addAll(properties);
+            }
+          }
+          if (bodyModel != null && unionMembers(bodyModel.getComposedSchemas()) != null) {
+            // oneOf/anyOf body: vars is the union of all branches, only one of which
+            // must be present, so no property can be individually required
+            for (CodegenProperty prop : flattenedProperties) {
+              prop.required = false;
+            }
           }
 
           for (CodegenProperty prop : flattenedProperties) {
@@ -404,7 +423,14 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
         }
 
         if(patternString == null || patternString.isEmpty()) {
-          patternString = getParamPattern(param);
+          // anyOf/oneOf parameter: a value matching any member schema is valid, so
+          // the members' patterns are combined into one alternation.
+          List<CodegenProperty> paramUnion = unionMembers(param.getComposedSchemas());
+          if (paramUnion != null) {
+            patternString = patternGenerationService.getComposedPattern(paramUnion, param.required);
+          } else {
+            patternString = getParamPattern(param);
+          }
           LOGGER.debug("Calculated pattern string {}", patternString);
           param.setPattern(patternString);
         }
@@ -475,6 +501,24 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
 
     if (currentProperty.isModel) {
       LOGGER.debug("Flattening model property: {}", currentProperty.baseName);
+      CodegenModel refModel = currentProperty.complexType != null ? modelLookup.get(currentProperty.complexType) : null;
+      List<CodegenProperty> union = refModel != null ? unionMembers(refModel.getComposedSchemas()) : null;
+
+      boolean unionHasModel = false;
+      if (union != null) {
+        for (CodegenProperty member : union) {
+          unionHasModel |= member.isModel;
+        }
+        if (!unionHasModel) {
+          // anyOf/oneOf of primitives: a single leaf validated against the
+          // alternation of the member patterns
+          CodegenProperty leaf = flattenedLeaf(currentProperty, baseNamePrefix);
+          leaf.pattern = patternGenerationService.getComposedPattern(union, true);
+          properties.add(leaf);
+          return properties;
+        }
+      }
+
       List<CodegenProperty> vars = (currentProperty.vars != null && !currentProperty.vars.isEmpty())
           ? currentProperty.vars
           : lookupModelVars(currentProperty, modelLookup);
@@ -487,12 +531,38 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
       for (CodegenProperty prop : vars) {
         properties.addAll(flattenModel(prop, baseNamePrefix, depth + 1, modelLookup));
       }
+      if (union != null) {
+        // oneOf/anyOf of models: vars holds the union of all branches, only one of
+        // which must be present, so no branch property can be individually required
+        for (CodegenProperty prop : properties) {
+          prop.required = false;
+        }
+      }
       return properties;
     }
 
     LOGGER.debug("Adding property: {}", currentProperty.baseName);
     properties.add(flattenedLeaf(currentProperty, baseNamePrefix));
     return properties;
+  }
+
+  /**
+   * Collect the oneOf/anyOf members of a composed schema. Both keywords get the
+   * same WAF treatment (a value passing any member is allowed), so they are merged.
+   * Returns null when the schema is not a oneOf/anyOf composition.
+   */
+  static List<CodegenProperty> unionMembers(org.openapitools.codegen.CodegenComposedSchemas composedSchemas) {
+    if (composedSchemas == null) {
+      return null;
+    }
+    List<CodegenProperty> members = new ArrayList<CodegenProperty>();
+    if (composedSchemas.getOneOf() != null) {
+      members.addAll(composedSchemas.getOneOf());
+    }
+    if (composedSchemas.getAnyOf() != null) {
+      members.addAll(composedSchemas.getAnyOf());
+    }
+    return members.isEmpty() ? null : members;
   }
 
   /**
@@ -575,7 +645,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     return regex.toString();
   }
 
-  private static String stripAnchors(String pattern) {
+  static String stripAnchors(String pattern) {
     String result = pattern;
     if (result.startsWith("^")) {
       result = result.substring(1);
