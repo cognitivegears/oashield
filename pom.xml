@@ -12,7 +12,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.6.2</version>
+                <version>3.6.3</version>
                 <executions>
                     <execution>
                         <id>enforce-maven</id>
@@ -32,7 +32,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.4</version>
+                <version>3.5.5</version>
                 <configuration>
                     <systemPropertyVariables>
                         <property>
@@ -40,7 +40,7 @@
                             <value>conf/log4j.properties</value>
                         </property>
                     </systemPropertyVariables>
-                    <argLine>-Xms512m -Xmx1500m</argLine>
+                    <!-- Don't hardcode argLine to allow JaCoCo to set it -->
                     <parallel>methods</parallel>
                 </configuration>
             </plugin>
@@ -97,11 +97,90 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.1</version>
+                <version>3.15.0</version>
                 <configuration>
                     <source>1.8</source>
                     <target>1.8</target>
                 </configuration>
+            </plugin>
+            <!-- JaCoCo plugin for code coverage -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.15</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Maven Failsafe Plugin for Integration Tests -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.5.5</version>
+                <executions>
+                    <execution>
+                        <id>integration-tests</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>**/*IT.java</include>
+                            </includes>
+                            <testSourceDirectory>src/test/java</testSourceDirectory>
+                            <testClassesDirectory>${project.build.directory}/test-classes</testClassesDirectory>
+                            <useModulePath>false</useModulePath>
+                            <testFailureIgnore>false</testFailureIgnore>
+                            <suiteXmlFiles>
+                                <suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
+                            </suiteXmlFiles>
+                            <!-- Force TestNG provider -->
+                            <useSystemClassLoader>false</useSystemClassLoader>
+                            <properties>
+                                <property>
+                                    <name>usedefaultlisteners</name>
+                                    <value>false</value>
+                                </property>
+                                <property>
+                                    <name>listener</name>
+                                    <value>io.cucumber.testng.TestNGCucumberRunner</value>
+                                </property>
+                            </properties>
+                            <systemPropertyVariables>
+                                <!-- Skip actual HTTP calls if configured -->
+                                <skipActualHttpCalls>${skip.http.calls}</skipActualHttpCalls>
+                                <skip.http.calls>${skip.http.calls}</skip.http.calls>
+                                <!-- Skip strict validation of status codes -->
+                                <skip.strict.validation>${skip.strict.validation}</skip.strict.validation>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.maven.surefire</groupId>
+                        <artifactId>surefire-testng</artifactId>
+                        <version>3.5.5</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>io.cucumber</groupId>
+                        <artifactId>cucumber-testng</artifactId>
+                        <version>7.34.4</version>
+                    </dependency>
+                </dependencies>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -144,14 +223,85 @@
             <version>${junit-version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.22.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.23.0</version> <!-- Use a recent version -->
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.46</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Integration Testing Dependencies -->
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-java</artifactId>
+            <version>7.34.4</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-testng</artifactId>
+            <version>7.34.4</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>7.12.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>6.0.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <!-- 1.19.x speaks a Docker API version rejected by Docker Engine 29+ -->
+            <version>1.21.4</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>tech.grasshopper</groupId>
+            <artifactId>extentreports-cucumber7-adapter</artifactId>
+            <version>1.14.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <openapi-generator-version>7.19.0</openapi-generator-version>
+        <openapi-generator-version>7.23.0</openapi-generator-version>
         <maven-plugin-version>1.0.0</maven-plugin-version>
-        <junit-version>6.0.2</junit-version>
+        <junit-version>6.1.1</junit-version>
+        <skip.http.calls>false</skip.http.calls>
+        <skip.strict.validation>false</skip.strict.validation>
     </properties>
     <profiles>
+        <!-- ARM profile (M1/M2/M3 Macs) - skip http calls manually with -Dskip.http.calls=true -->
+        <profile>
+            <id>arm</id>
+            <activation>
+                <os>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <!-- No longer automatically skip HTTP calls on ARM architecture
+                     since Docker now has ARM support. Use -Dskip.http.calls=true to skip manually -->
+            </properties>
+        </profile>
         <profile>
             <id>build-cli-jar</id>
             <dependencies>

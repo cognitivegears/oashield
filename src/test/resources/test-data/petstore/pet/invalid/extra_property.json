@@ -1,0 +1,5 @@
+{
+  "name": "doggie",
+  "photoUrls": ["string"],
+  "notInSchema": "surprise"
+}
