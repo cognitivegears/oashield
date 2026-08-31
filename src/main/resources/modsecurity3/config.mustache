@@ -12,51 +12,51 @@ SecRule REQUEST_METHOD "!@within {{httpMethod}}" "id:{{vendorExtensions.x-codege
 {{#allParams}}
 {{#pattern}}
 {{#isQueryParam}}
-SecRule ARGS_GET:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_6}},phase:2,block,msg:'Forbidden parameter value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule ARGS_GET:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_6}},phase:2,{{{ruleDisruptiveAction}}},msg:'Forbidden parameter value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{#required}}
-SecRule &ARGS_GET:{{paramName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_22}},phase:2,block,msg:'Missing required parameter {{paramName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS_GET:{{paramName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_22}},phase:2,{{{ruleDisruptiveAction}}},msg:'Missing required parameter {{paramName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/required}}
 {{^isArray}}
-SecRule &ARGS_GET:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_7}},phase:2,block,msg:'Multiple values for non-array parameter',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS_GET:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_7}},phase:2,{{{ruleDisruptiveAction}}},msg:'Multiple values for non-array parameter',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/isArray}}
 {{#vendorExtensions.x-codegen-hasArrayMin}}
-SecRule &ARGS_GET:{{paramName}} "@lt {{minItems}}" "id:{{vendorExtensions.x-codegen-globalIndex_8}},phase:2,block,msg:'Too few values for array parameter',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS_GET:{{paramName}} "@lt {{minItems}}" "id:{{vendorExtensions.x-codegen-globalIndex_8}},phase:2,{{{ruleDisruptiveAction}}},msg:'Too few values for array parameter',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/vendorExtensions.x-codegen-hasArrayMin}}
 {{#vendorExtensions.x-codegen-hasArrayMax}}
-SecRule &ARGS_GET:{{paramName}} "@gt {{maxItems}}" "id:{{vendorExtensions.x-codegen-globalIndex_9}},phase:2,block,msg:'Too many values for array parameter',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS_GET:{{paramName}} "@gt {{maxItems}}" "id:{{vendorExtensions.x-codegen-globalIndex_9}},phase:2,{{{ruleDisruptiveAction}}},msg:'Too many values for array parameter',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/vendorExtensions.x-codegen-hasArrayMax}}
 {{#minimum}}
-SecRule ARGS_GET:{{paramName}} "{{#exclusiveMinimum}}@le{{/exclusiveMinimum}}{{^exclusiveMinimum}}@lt{{/exclusiveMinimum}} {{minimum}}" "id:{{vendorExtensions.x-codegen-globalIndex_16}},phase:2,block,msg:'Parameter value below minimum',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule ARGS_GET:{{paramName}} "{{#exclusiveMinimum}}@le{{/exclusiveMinimum}}{{^exclusiveMinimum}}@lt{{/exclusiveMinimum}} {{minimum}}" "id:{{vendorExtensions.x-codegen-globalIndex_16}},phase:2,{{{ruleDisruptiveAction}}},msg:'Parameter value below minimum',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/minimum}}
 {{#maximum}}
-SecRule ARGS_GET:{{paramName}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{^exclusiveMaximum}}@gt{{/exclusiveMaximum}} {{maximum}}" "id:{{vendorExtensions.x-codegen-globalIndex_17}},phase:2,block,msg:'Parameter value above maximum',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule ARGS_GET:{{paramName}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{^exclusiveMaximum}}@gt{{/exclusiveMaximum}} {{maximum}}" "id:{{vendorExtensions.x-codegen-globalIndex_17}},phase:2,{{{ruleDisruptiveAction}}},msg:'Parameter value above maximum',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/maximum}}
 {{/isQueryParam}}
 {{#isFormParam}}
-SecRule ARGS_POST:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_10}},phase:2,block,msg:'Forbidden parameter value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule ARGS_POST:{{paramName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_10}},phase:2,{{{ruleDisruptiveAction}}},msg:'Forbidden parameter value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{#required}}
-SecRule &ARGS_POST:{{paramName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_23}},phase:2,block,msg:'Missing required parameter {{paramName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS_POST:{{paramName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_23}},phase:2,{{{ruleDisruptiveAction}}},msg:'Missing required parameter {{paramName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/required}}
 {{^isArray}}
-SecRule &ARGS_POST:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_11}},phase:2,block,msg:'Multiple values for non-array parameter',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS_POST:{{paramName}} "@gt 1" "id:{{vendorExtensions.x-codegen-globalIndex_11}},phase:2,{{{ruleDisruptiveAction}}},msg:'Multiple values for non-array parameter',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/isArray}}
 {{#minimum}}
-SecRule ARGS_POST:{{paramName}} "{{#exclusiveMinimum}}@le{{/exclusiveMinimum}}{{^exclusiveMinimum}}@lt{{/exclusiveMinimum}} {{minimum}}" "id:{{vendorExtensions.x-codegen-globalIndex_12}},phase:2,block,msg:'Parameter value below minimum',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule ARGS_POST:{{paramName}} "{{#exclusiveMinimum}}@le{{/exclusiveMinimum}}{{^exclusiveMinimum}}@lt{{/exclusiveMinimum}} {{minimum}}" "id:{{vendorExtensions.x-codegen-globalIndex_12}},phase:2,{{{ruleDisruptiveAction}}},msg:'Parameter value below minimum',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/minimum}}
 {{#maximum}}
-SecRule ARGS_POST:{{paramName}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{^exclusiveMaximum}}@gt{{/exclusiveMaximum}} {{maximum}}" "id:{{vendorExtensions.x-codegen-globalIndex_13}},phase:2,block,msg:'Parameter value above maximum',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule ARGS_POST:{{paramName}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{^exclusiveMaximum}}@gt{{/exclusiveMaximum}} {{maximum}}" "id:{{vendorExtensions.x-codegen-globalIndex_13}},phase:2,{{{ruleDisruptiveAction}}},msg:'Parameter value above maximum',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/maximum}}
 {{/isFormParam}}
 {{#isHeaderParam}}
-SecRule REQUEST_HEADERS:{{baseName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_18}},phase:2,block,msg:'Forbidden header value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule REQUEST_HEADERS:{{baseName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_18}},phase:2,{{{ruleDisruptiveAction}}},msg:'Forbidden header value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{#required}}
-SecRule &REQUEST_HEADERS:{{baseName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_19}},phase:2,block,msg:'Missing required header {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule &REQUEST_HEADERS:{{baseName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_19}},phase:2,{{{ruleDisruptiveAction}}},msg:'Missing required header {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/required}}
 {{/isHeaderParam}}
 {{#isCookieParam}}
-SecRule REQUEST_COOKIES:{{baseName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_20}},phase:2,block,msg:'Forbidden cookie value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule REQUEST_COOKIES:{{baseName}} "!@rx {{pattern}}" "id:{{vendorExtensions.x-codegen-globalIndex_20}},phase:2,{{{ruleDisruptiveAction}}},msg:'Forbidden cookie value detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{#required}}
-SecRule &REQUEST_COOKIES:{{baseName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_21}},phase:2,block,msg:'Missing required cookie {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule &REQUEST_COOKIES:{{baseName}} "@eq 0" "id:{{vendorExtensions.x-codegen-globalIndex_21}},phase:2,{{{ruleDisruptiveAction}}},msg:'Missing required cookie {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/required}}
 {{/isCookieParam}}
 {{/pattern}}
@@ -64,7 +64,7 @@ SecRule &REQUEST_COOKIES:{{baseName}} "@eq 0" "id:{{vendorExtensions.x-codegen-g
 
 # Reject unknown parameters: ARGS_NAMES holds query, form, and flattened JSON body
 # names on both engines, so one allowlist covers them all.
-SecRule ARGS_NAMES "!@rx ^(?:{{vendorExtensions.x-codegen-argsAllowlist}})$" "id:{{vendorExtensions.x-codegen-globalIndex_14}},phase:2,block,msg:'Unknown parameter detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule ARGS_NAMES "!@rx ^(?:{{vendorExtensions.x-codegen-argsAllowlist}})$" "id:{{vendorExtensions.x-codegen-globalIndex_14}},phase:2,{{{ruleDisruptiveAction}}},msg:'Unknown parameter detected',{{logAction}},skipAfter:FAILED_API_CHECKS"
 
 # Handle request bodies by declared media type
 {{#vendorExtensions.x-codegen-optionalBody}}
@@ -76,41 +76,41 @@ SecRule &REQUEST_HEADERS:Content-Type "@eq 0" "id:{{vendorExtensions.x-codegen-g
 SecRule REQUEST_HEADERS:Content-Type "!@rx ^{{mediaTypeRegex}}" "id:{{oasGateId}},phase:2,pass,nolog,skipAfter:ENDMEDIA_{{operationId}}_{{consumeIndex}}"
 # ModSecurity3 flags unparseable bodies here; Coraza does not set REQBODY_ERROR,
 # but its @validateSchema rule below rejects malformed JSON instead.
-SecRule REQBODY_ERROR "!@eq 0" "id:{{oasBodyErrId}},phase:2,block,msg:'Failed to parse request body',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule REQBODY_ERROR "!@eq 0" "id:{{oasBodyErrId}},phase:2,{{{ruleDisruptiveAction}}},msg:'Failed to parse request body',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{#vendorExtensions.validateBodySchema}}
 {{#allParams}}
 {{#isBodyParam}}
 {{#vendorExtensions.x-oashield-dependentRules}}
-SecRule &ARGS:{{trigger}} "@gt 0" "id:{{depRuleId}},phase:2,block,msg:'Property {{trigger}} requires {{dependent}}',{{logAction}},skipAfter:FAILED_API_CHECKS,chain"
+SecRule &ARGS:{{trigger}} "@gt 0" "id:{{depRuleId}},phase:2,{{{ruleDisruptiveAction}}},msg:'Property {{trigger}} requires {{dependent}}',{{logAction}},skipAfter:FAILED_API_CHECKS,chain"
 SecRule &ARGS:{{dependent}} "@eq 0" "t:none"
 {{/vendorExtensions.x-oashield-dependentRules}}
 {{#vendorExtensions.x-codegen-modelProperties}}
 {{#vendorExtensions.x-oashield-patternProps}}
-SecRule ARGS:{{selector}} "!@rx {{valuePattern}}" "id:{{ruleId}},phase:2,block,msg:'Invalid value for patternProperties key under {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule ARGS:{{selector}} "!@rx {{valuePattern}}" "id:{{ruleId}},phase:2,{{{ruleDisruptiveAction}}},msg:'Invalid value for patternProperties key under {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/vendorExtensions.x-oashield-patternProps}}
 {{#vendorExtensions.x-oashield-requiredRule}}
 {{#vendorExtensions.x-oashield-parentSelector}}
-SecRule &ARGS:{{vendorExtensions.x-oashield-parentSelector}} "@gt 0" "id:{{vendorExtensions.x-codegen-propIndex_1}},phase:2,block,msg:'Missing required property {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS,chain"
+SecRule &ARGS:{{vendorExtensions.x-oashield-parentSelector}} "@gt 0" "id:{{vendorExtensions.x-codegen-propIndex_1}},phase:2,{{{ruleDisruptiveAction}}},msg:'Missing required property {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS,chain"
 SecRule &ARGS:{{vendorExtensions.x-oashield-argTarget}} "@eq 0" "t:none"
 {{/vendorExtensions.x-oashield-parentSelector}}
 {{^vendorExtensions.x-oashield-parentSelector}}
-SecRule &ARGS:{{vendorExtensions.x-oashield-argTarget}} "@eq 0" "id:{{vendorExtensions.x-codegen-propIndex_1}},phase:2,block,msg:'Missing required property {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS:{{vendorExtensions.x-oashield-argTarget}} "@eq 0" "id:{{vendorExtensions.x-codegen-propIndex_1}},phase:2,{{{ruleDisruptiveAction}}},msg:'Missing required property {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/vendorExtensions.x-oashield-parentSelector}}
 {{/vendorExtensions.x-oashield-requiredRule}}
 {{#vendorExtensions.x-oashield-pattern}}
-SecRule ARGS:{{vendorExtensions.x-oashield-argTarget}} "!@rx {{vendorExtensions.x-oashield-pattern}}" "id:{{vendorExtensions.x-codegen-propIndex_2}},phase:2,block,msg:'Invalid value for property {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule ARGS:{{vendorExtensions.x-oashield-argTarget}} "!@rx {{vendorExtensions.x-oashield-pattern}}" "id:{{vendorExtensions.x-codegen-propIndex_2}},phase:2,{{{ruleDisruptiveAction}}},msg:'Invalid value for property {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/vendorExtensions.x-oashield-pattern}}
 {{#minimum}}
-SecRule ARGS:{{vendorExtensions.x-oashield-argTarget}} "{{#exclusiveMinimum}}@le{{/exclusiveMinimum}}{{^exclusiveMinimum}}@lt{{/exclusiveMinimum}} {{minimum}}" "id:{{vendorExtensions.x-codegen-propIndex_3}},phase:2,block,msg:'Property value below minimum for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule ARGS:{{vendorExtensions.x-oashield-argTarget}} "{{#exclusiveMinimum}}@le{{/exclusiveMinimum}}{{^exclusiveMinimum}}@lt{{/exclusiveMinimum}} {{minimum}}" "id:{{vendorExtensions.x-codegen-propIndex_3}},phase:2,{{{ruleDisruptiveAction}}},msg:'Property value below minimum for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/minimum}}
 {{#maximum}}
-SecRule ARGS:{{vendorExtensions.x-oashield-argTarget}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{^exclusiveMaximum}}@gt{{/exclusiveMaximum}} {{maximum}}" "id:{{vendorExtensions.x-codegen-propIndex_4}},phase:2,block,msg:'Property value above maximum for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule ARGS:{{vendorExtensions.x-oashield-argTarget}} "{{#exclusiveMaximum}}@ge{{/exclusiveMaximum}}{{^exclusiveMaximum}}@gt{{/exclusiveMaximum}} {{maximum}}" "id:{{vendorExtensions.x-codegen-propIndex_4}},phase:2,{{{ruleDisruptiveAction}}},msg:'Property value above maximum for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/maximum}}
 {{#vendorExtensions.x-oashield-countMin}}
-SecRule &ARGS:{{vendorExtensions.x-oashield-countSelector}} "@lt {{vendorExtensions.x-oashield-countMin}}" "id:{{vendorExtensions.x-codegen-propIndex_5}},phase:2,block,msg:'Too few array elements for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS:{{vendorExtensions.x-oashield-countSelector}} "@lt {{vendorExtensions.x-oashield-countMin}}" "id:{{vendorExtensions.x-codegen-propIndex_5}},phase:2,{{{ruleDisruptiveAction}}},msg:'Too few array elements for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/vendorExtensions.x-oashield-countMin}}
 {{#vendorExtensions.x-oashield-countMax}}
-SecRule &ARGS:{{vendorExtensions.x-oashield-countSelector}} "@gt {{vendorExtensions.x-oashield-countMax}}" "id:{{vendorExtensions.x-codegen-propIndex_6}},phase:2,block,msg:'Too many array elements for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule &ARGS:{{vendorExtensions.x-oashield-countSelector}} "@gt {{vendorExtensions.x-oashield-countMax}}" "id:{{vendorExtensions.x-codegen-propIndex_6}},phase:2,{{{ruleDisruptiveAction}}},msg:'Too many array elements for {{baseName}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/vendorExtensions.x-oashield-countMax}}
 {{/vendorExtensions.x-codegen-modelProperties}}
 {{/isBodyParam}}
@@ -118,7 +118,7 @@ SecRule &ARGS:{{vendorExtensions.x-oashield-countSelector}} "@gt {{vendorExtensi
 {{#isCoraza}}
 # Coraza implements @validateSchema for JSON Schema; ModSecurity3's is XSD-only,
 # which is why the modsecurity3 flavor relies on the per-field rules above.
-SecRule REQUEST_BODY "@validateSchema {{schemaRulePath}}" "id:{{oasSchemaId}},phase:2,block,msg:'JSON schema validation failed for {{operationId}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule REQUEST_BODY "@validateSchema {{schemaRulePath}}" "id:{{oasSchemaId}},phase:2,{{{ruleDisruptiveAction}}},msg:'JSON schema validation failed for {{operationId}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/isCoraza}}
 {{/vendorExtensions.validateBodySchema}}
 SecAction "id:{{oasPassId}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
@@ -127,12 +127,12 @@ SecMarker ENDMEDIA_{{operationId}}_{{consumeIndex}}
 {{/isJson}}
 {{#isXml}}
 SecRule REQUEST_HEADERS:Content-Type "!@rx ^{{mediaTypeRegex}}" "id:{{oasGateId}},phase:2,pass,nolog,skipAfter:ENDMEDIA_{{operationId}}_{{consumeIndex}}"
-SecRule REQBODY_ERROR "!@eq 0" "id:{{oasBodyErrId}},phase:2,block,msg:'Failed to parse request body',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule REQBODY_ERROR "!@eq 0" "id:{{oasBodyErrId}},phase:2,{{{ruleDisruptiveAction}}},msg:'Failed to parse request body',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{#validateXmlSchema}}
 {{#isModsec3}}
 # XSD validation is opt-in: current libmodsecurity3 fails to load XSDs at request
 # time (docs/engine-behavior.md); enable only on an engine build where it works.
-SecRule XML "@validateSchema {{xsdRulePath}}" "id:{{oasSchemaId}},phase:2,block,msg:'XML schema validation failed for {{operationId}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule XML "@validateSchema {{xsdRulePath}}" "id:{{oasSchemaId}},phase:2,{{{ruleDisruptiveAction}}},msg:'XML schema validation failed for {{operationId}}',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/isModsec3}}
 {{/validateXmlSchema}}
 SecAction "id:{{oasPassId}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
@@ -143,7 +143,7 @@ SecMarker ENDMEDIA_{{operationId}}_{{consumeIndex}}
 # form-urlencoded/multipart: text fields land in ARGS_POST on both engines and are
 # validated by the parameter rules and ARGS_NAMES allowlist above
 SecRule REQUEST_HEADERS:Content-Type "!@rx ^{{mediaTypeRegex}}" "id:{{oasGateId}},phase:2,pass,nolog,skipAfter:ENDMEDIA_{{operationId}}_{{consumeIndex}}"
-SecRule REQBODY_ERROR "!@eq 0" "id:{{oasBodyErrId}},phase:2,block,msg:'Failed to parse request body',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecRule REQBODY_ERROR "!@eq 0" "id:{{oasBodyErrId}},phase:2,{{{ruleDisruptiveAction}}},msg:'Failed to parse request body',{{logAction}},skipAfter:FAILED_API_CHECKS"
 SecAction "id:{{oasPassId}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
 
 SecMarker ENDMEDIA_{{operationId}}_{{consumeIndex}}
@@ -152,7 +152,7 @@ SecMarker ENDMEDIA_{{operationId}}_{{consumeIndex}}
 # Declared media type the WAF cannot inspect; handling set by unknownMediaTypePolicy
 SecRule REQUEST_HEADERS:Content-Type "!@rx ^{{mediaTypeRegex}}" "id:{{oasGateId}},phase:2,pass,nolog,skipAfter:ENDMEDIA_{{operationId}}_{{consumeIndex}}"
 {{#blockOtherMedia}}
-SecAction "id:{{oasPassId}},phase:2,block,msg:'Uninspectable media type blocked by policy',{{logAction}},skipAfter:FAILED_API_CHECKS"
+SecAction "id:{{oasPassId}},phase:2,{{{ruleDisruptiveAction}}},msg:'Uninspectable media type blocked by policy',{{logAction}},skipAfter:FAILED_API_CHECKS"
 {{/blockOtherMedia}}
 {{^blockOtherMedia}}
 SecAction "id:{{oasPassId}},phase:2,pass,nolog,skipAfter:AFTER_CONSUMES_{{operationId}}"
@@ -171,7 +171,7 @@ SecAction "id:{{vendorExtensions.x-codegen-globalIndex_25}},phase:2,pass,nolog,s
 {{/consumes}}
 
 # Declared consumes exist but the request Content-Type matched none of them
-SecAction "id:{{vendorExtensions.x-codegen-globalIndex_21}},{{logAction}},block,phase:2,msg:'Unexpected content type'"
+SecAction "id:{{vendorExtensions.x-codegen-globalIndex_21}},{{logAction}},{{{ruleDisruptiveAction}}},phase:2,msg:'Unexpected content type'"
 
 
 SecMarker AFTER_CONSUMES_{{operationId}}

@@ -198,7 +198,14 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
         // Real boolean for the mustache section; derived strings so templates stay flat
         additionalProperties.put("includeEngineConfig", includeEngineConfig);
         additionalProperties.put("logAction", enableLogging ? "log,auditlog" : "nolog");
-        additionalProperties.put("denyActionDirective", buildDenyActionDirective());
+        String denyActionDirective = buildDenyActionDirective();
+        additionalProperties.put("denyActionDirective", denyActionDirective);
+        // Per-rule disruptive action. When the engine config is included, rules keep
+        // the bare `block`, which inherits the emitted SecDefaultAction. When it is
+        // omitted (rules layered onto a host engine, e.g. Coraza+CRS), there is no
+        // SecDefaultAction of ours to inherit — and a host like CRS defaults phase 2
+        // to `pass` — so emit the deny action inline instead, or the rules no-op.
+        additionalProperties.put("ruleDisruptiveAction", includeEngineConfig ? "block" : denyActionDirective);
     }
 
     /**
@@ -1546,6 +1553,7 @@ public class Modsecurity3Generator extends DefaultCodegen implements CodegenConf
     additionalProperties.put("includeEngineConfig", includeEngineConfig);
     additionalProperties.put("logAction", "log,auditlog");
     additionalProperties.put("denyActionDirective", "deny,status:" + denyStatus);
+    additionalProperties.put("ruleDisruptiveAction", includeEngineConfig ? "block" : "deny,status:" + denyStatus);
     cliOptions.add(new CliOption("denyAction",
         "Disruptive action applied when a rule blocks: 'deny', 'drop', 'redirect' or 'pass' (detection-only)")
         .defaultValue(denyAction));

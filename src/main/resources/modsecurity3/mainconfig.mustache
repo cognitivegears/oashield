@@ -23,4 +23,4 @@ Include {{classFilename}}.conf
 
 # For anything else, deny by default
 SecMarker FAILED_API_CHECKS
-SecAction "id:4220001,{{logAction}},block,phase:2,msg:'Unknown API endpoint'"
+SecAction "id:4220001,{{logAction}},{{{ruleDisruptiveAction}}},phase:2,msg:'Unknown API endpoint'"
