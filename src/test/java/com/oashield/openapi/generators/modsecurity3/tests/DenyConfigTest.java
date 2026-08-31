@@ -108,6 +108,38 @@ public class DenyConfigTest {
         assertFalse(main.contains("SecDefaultAction"), "no SecDefaultAction when includeEngineConfig=false");
         assertTrue(main.contains("Include "), "operation includes still emitted");
         assertTrue(main.contains("SecMarker FAILED_API_CHECKS"), "catch-all rules still emitted");
+
+        // With no SecDefaultAction of ours to inherit, the operation rules must
+        // carry the disruptive action inline; otherwise `block` would no-op on a
+        // host that defaults phase 2 to `pass` (e.g. Coraza + CRS).
+        String api = apiConfig();
+        assertTrue(api.contains("deny,status:403,msg:'Unknown parameter detected'"),
+                "rules carry inline deny when engine config is omitted");
+        assertFalse(api.contains("block,msg:'Unknown parameter detected'"),
+                "no bare block to inherit a (missing) default action");
+        assertTrue(main.contains("deny,status:403,phase:2,msg:'Unknown API endpoint'"),
+                "catch-all default-deny also carries the action inline");
+    }
+
+    @Test
+    public void includeEngineConfigFalseHonorsDenyActionInline() throws IOException {
+        Map<String, Object> props = new HashMap<>();
+        props.put("includeEngineConfig", "false");
+        props.put("denyAction", "pass"); // detection-only
+        generate(props);
+
+        String api = apiConfig();
+        assertTrue(api.contains("pass,msg:'Unknown parameter detected'"),
+                "detection-only emits inline pass when engine config is omitted");
+        assertFalse(api.contains("block,msg:'Unknown parameter detected'"), "no bare block");
+    }
+
+    @Test
+    public void includeEngineConfigTrueKeepsBareBlock() throws IOException {
+        generate(new HashMap<>()); // defaults: includeEngineConfig=true
+
+        assertTrue(apiConfig().contains("block,msg:'Unknown parameter detected'"),
+                "rules keep bare block, inheriting the emitted SecDefaultAction");
     }
 
     @Test

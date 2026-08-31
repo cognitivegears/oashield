@@ -33,10 +33,11 @@ Pass them comma-separated:
 
 ## Deny behavior and logging
 
-Every generated rule uses the `block` action, so the actual disruptive
-behavior is decided in one place: the `SecDefaultAction` emitted at the top of
-`mainconfig.conf`. `denyAction`/`denyStatus`/`denyRedirectUrl` control that
-line:
+When the engine config is emitted (the default), every generated rule uses the
+`block` action, so the actual disruptive behavior is decided in one place: the
+`SecDefaultAction` emitted at the top of `mainconfig.conf`.
+`denyAction`/`denyStatus`/`denyRedirectUrl` control that line (and, when the
+engine config is omitted, the inline action described below):
 
 ```bash
 # Return 429 instead of 403
@@ -51,8 +52,12 @@ line:
 
 If your ModSecurity/Coraza deployment already configures the engine (rule
 engine mode, body access, default action), generate only the rules with
-`includeEngineConfig=false` — your existing `SecDefaultAction` then decides
-what blocking means.
+`includeEngineConfig=false`. Because there is then no `SecDefaultAction` of
+ours for `block` to inherit — and a host ruleset such as the OWASP Core Rule
+Set defaults phase 2 to `pass` — the generated rules emit the disruptive action
+(from `denyAction`/`denyStatus`) **inline** instead of `block`, so they still
+deny (or, with `denyAction=pass`, run detection-only) regardless of the host's
+default action.
 
 ## Engine flavors
 
